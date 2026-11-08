@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deck Title</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+:root{--bg:#0f1115;--fg:#f3f4f6;--muted:#9ca3af;--accent:#0078D4;--card:#1a1d24}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:var(--bg);color:var(--fg);font-family:"Segoe UI",system-ui,sans-serif;overflow:hidden}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;justify-content:center;padding:6vh 8vw;gap:3vh}
+.slide.active{display:flex;animation:fade .35s ease}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+h1{font-size:clamp(2rem,5vw,4rem);line-height:1.1}
+h2{font-size:clamp(1.5rem,3.2vw,2.6rem);line-height:1.15}
+.eyebrow{color:var(--accent);font-weight:600;letter-spacing:.08em;text-transform:uppercase;font-size:.9rem}
+p,li{font-size:clamp(1rem,1.6vw,1.4rem);color:var(--muted);line-height:1.5}
+ul{padding-left:1.2em;display:grid;gap:1.2vh}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:2vw}
+.kpi{background:var(--card);border-radius:16px;padding:3vh 2vw;border-top:4px solid var(--accent)}
+.kpi b{display:block;font-size:clamp(2rem,4vw,3.4rem);color:var(--fg)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:4vw;align-items:center}
+.chart{background:var(--card);border-radius:16px;padding:2vh;max-height:55vh}
+#nav{position:fixed;bottom:2vh;right:3vw;color:var(--muted);font-size:.9rem}
+#bar{position:fixed;bottom:0;left:0;height:4px;background:var(--accent);transition:width .3s}
+@media print{html,body{overflow:visible}.slide{display:flex!important;position:relative;height:100vh;page-break-after:always}#nav,#bar{display:none}}
+</style>
+</head>
+<body>
+
+<section class="slide">
+  <div class="eyebrow">Team / Date</div>
+  <h1>Deck title that states the main point</h1>
+  <p>One-line subtitle or presenter name</p>
+</section>
+
+<section class="slide">
+  <div class="eyebrow">Results</div>
+  <h2>Headline that tells the takeaway</h2>
+  <div class="kpis">
+    <div class="kpi"><b>42%</b><p>Metric label</p></div>
+    <div class="kpi"><b>1.2s</b><p>Metric label</p></div>
+    <div class="kpi"><b>3x</b><p>Metric label</p></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="eyebrow">Trend</div>
+  <div class="cols">
+    <div><h2>Chart headline</h2><ul><li>Insight one</li><li>Insight two</li></ul></div>
+    <div class="chart"><canvas id="c1" aria-label="Trend chart"></canvas></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="eyebrow">Architecture</div>
+  <h2>How it works</h2>
+  <pre class="mermaid">flowchart LR
+  A[Input] --> B[Agent] --> C[Output]</pre>
+</section>
+
+<section class="slide">
+  <div class="eyebrow">Next steps</div>
+  <h2>What we need</h2>
+  <ul><li>Ask / decision one</li><li>Ask / decision two</li></ul>
+</section>
+
+<div id="nav"></div><div id="bar"></div>
+<script>
+mermaid.initialize({startOnLoad:true,theme:'dark'});
+const s=[...document.querySelectorAll('.slide')];let i=0;
+function go(n){i=Math.max(0,Math.min(s.length-1,n));s.forEach((x,k)=>x.classList.toggle('active',k===i));
+document.getElementById('nav').textContent=(i+1)+' / '+s.length;document.getElementById('bar').style.width=((i+1)/s.length*100)+'%';location.hash=i+1}
+addEventListener('keydown',e=>{if(['ArrowRight','PageDown',' '].includes(e.key))go(i+1);if(['ArrowLeft','PageUp'].includes(e.key))go(i-1);if(e.key==='Home')go(0);if(e.key==='End')go(s.length-1)});
+addEventListener('click',e=>go(e.clientX>innerWidth/2?i+1:i-1));
+go((parseInt(location.hash.slice(1))||1)-1);
+Chart.defaults.color='#9ca3af';
+new Chart(document.getElementById('c1'),{type:'line',data:{labels:['Q1','Q2','Q3','Q4'],datasets:[{label:'Metric',data:[10,18,25,34],borderColor:'#0078D4',tension:.35,fill:false}]},options:{plugins:{legend:{display:false}}}});
+</script>
+</body>
+</html>

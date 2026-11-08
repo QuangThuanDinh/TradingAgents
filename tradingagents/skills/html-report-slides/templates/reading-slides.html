@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>[SOURCE: report title] | Reading deck</title>
+<style>
+:root{--bg:#0f1115;--fg:#f3f4f6;--muted:#b9c4d0;--accent:#70b7ff;--card:#1a1d24;--line:#344252;--risk:#f3c16d}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:"Segoe UI",system-ui,sans-serif}
+body{display:grid;grid-template-columns:260px minmax(0,1fr);height:100dvh;overflow:hidden}
+button{font:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.toc{padding:20px 14px;overflow:auto;background:#141a22;border-right:1px solid var(--line)}
+#toc-backdrop,.toc-close{display:none}
+.brand{font-size:18px;font-weight:700;margin:0 8px 6px}
+.toc-note{font-size:12px;line-height:1.7;color:var(--muted);margin:0 8px 20px}
+.toc-group{margin:16px 0}
+.toc-group>summary{padding:8px;font-size:13px;font-weight:700;line-height:1.6;cursor:pointer}
+.jump{display:block;width:100%;padding:10px 12px;text-align:left;border:0;border-radius:7px;background:transparent;color:var(--muted);font-size:13px;line-height:1.5}
+.jump:hover{background:#202e3d}
+.jump[aria-current=page]{background:#19314a;color:var(--accent);font-weight:600}
+.reader{grid-column:2;min-width:0;overflow:auto;scrollbar-gutter:stable}
+.toolbar{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:12px;padding:12px 24px;background:#0f1115f5;border-bottom:1px solid var(--line)}
+.decision{flex:1;color:var(--risk);font-size:14px;font-weight:700;line-height:1.5}
+.toolbar button{min-width:44px;min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg)}
+.toolbar button:disabled{opacity:.4;cursor:default}
+#counter{font-size:13px;color:var(--muted);white-space:nowrap}
+#menu{display:block}
+@media(min-width:1025px){body.toc-collapsed{grid-template-columns:0 minmax(0,1fr)}.toc-collapsed .toc{display:none}}
+.slide{display:none;min-height:calc(100dvh - 70px);padding:28px clamp(18px,3vw,48px) 60px}
+.slide.active{display:block;animation:fade .2s ease}
+@keyframes fade{from{opacity:0;transform:translateY(5px)}to{opacity:1}}
+.chapter{margin-bottom:12px;color:var(--accent);font-size:13px;font-weight:700;letter-spacing:.04em}
+h1{margin:0 0 16px;font-size:clamp(25px,2.5vw,36px);line-height:1.25;letter-spacing:-.025em}
+.source-note{margin-bottom:24px;font-size:12px;line-height:1.7;color:var(--muted)}
+.mode{display:inline-block;margin-right:6px;padding:3px 8px;border:1px solid var(--line);border-radius:5px;color:var(--fg)}
+.reading-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,clamp(140px,32%,285px));gap:24px;align-items:start}
+.report{padding:clamp(18px,2.4vw,32px);border:1px solid var(--line);border-radius:14px;background:var(--card);font-size:16px;line-height:1.85;overflow-wrap:anywhere}
+.report>:first-child{margin-top:0}.report>:last-child{margin-bottom:0}
+.report h2{margin:32px 0 16px;padding-bottom:10px;border-bottom:1px solid var(--line);font-size:23px;line-height:1.4}
+.report h3{margin:28px 0 12px;font-size:20px;line-height:1.45}
+.report p{margin:14px 0}.report li{margin:8px 0}.report strong{color:#fff}
+.report a{color:var(--accent);text-underline-offset:3px}
+.report table{display:block;max-width:100%;overflow:auto;border-collapse:collapse;margin:20px 0;font-size:14px;line-height:1.65}
+.report th,.report td{padding:10px 12px;border:1px solid var(--line);text-align:left}
+.report th{background:#233142}
+.report blockquote{margin-left:0;padding-left:18px;border-left:3px solid var(--accent);color:var(--muted)}
+.report pre{overflow:auto;padding:16px;background:#263242}
+.report code{font-family:Consolas,monospace}
+.guide{position:sticky;top:95px;align-self:start;min-width:0;max-height:calc(100dvh - 115px);overflow:auto;overscroll-behavior:contain;overflow-wrap:anywhere}
+.guide .guide-panel{margin:0;padding:0;border:0;background:transparent}
+.guide h2{margin:0;padding:8px 0;color:var(--accent);font-size:17px;line-height:1.5}
+.guide-content{padding-top:8px}
+.guide-label{margin:0 0 16px;font-size:12px;line-height:1.6;color:var(--muted)}
+.guide details{margin:12px 0;padding:14px;border:1px solid var(--line);border-radius:10px;background:#151e29}
+.guide summary{font-size:14px;font-weight:700;line-height:1.5;cursor:pointer}
+.guide p{margin:10px 0 0;font-size:14px;line-height:1.8;color:var(--muted)}
+.final-reminder{margin-top:18px;padding:12px 14px;border-left:3px solid var(--risk);border-radius:6px;background:#242018}
+.final-reminder strong{color:var(--risk);font-size:14px}
+.chart{margin:0 0 28px;padding:18px;border:1px solid var(--line);border-radius:12px;background:#121b26}
+.report .chart-heading{margin:0 0 8px;font-size:19px}
+.chart-scroll{overflow-x:auto}
+.chart svg{display:block;width:100%;min-width:500px;height:auto}
+.chart text{font-family:"Segoe UI",system-ui,sans-serif;font-size:15px;fill:var(--muted)}
+.chart .value{fill:var(--fg);font-weight:700}
+.chart .axis{stroke:#536273;stroke-width:1}
+.chart .grid{stroke:var(--line);stroke-dasharray:4 5}
+.chart .line{stroke:var(--accent);stroke-width:3;fill:none}
+.chart .dot,.chart .bar{fill:var(--accent)}
+.chart .estimate{fill:#24384e;stroke:var(--risk);stroke-width:2;stroke-dasharray:7 5}
+.chart .flow-box{fill:#1a293a;stroke:#536273}
+.chart figcaption{margin-top:10px;color:var(--muted);font-size:13px;line-height:1.75}
+@media(max-width:1150px){.reading-layout{gap:16px}}
+@media(max-width:1024px){
+  body{display:block}
+  .reader{height:100dvh}
+  .toc{display:none;position:fixed;inset:0 auto 0 0;width:min(320px,calc(100vw - 32px));z-index:6;border:0;box-shadow:8px 0 30px #0006;overscroll-behavior:contain}
+  .toc.open{display:block}
+  .toc .brand{padding-right:48px;margin-bottom:16px}
+  #toc-backdrop:not([hidden]){display:block;position:fixed;inset:0;z-index:5;border:0;background:#0009}
+  .toc-close{display:block;position:absolute;top:12px;right:12px;width:44px;height:44px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font-size:24px}
+}
+@media(max-width:760px){.toolbar{padding:10px 12px;gap:8px}.decision{font-size:12px}.toolbar button{padding:8px}.slide{padding:24px 14px 40px}.reading-layout{gap:12px}.guide details{margin:12px 0;padding:8px}.final-reminder{padding:8px}.report{padding:12px}}
+@media(prefers-reduced-motion:reduce){.slide.active{animation:none}}
+@media print{
+  @page{size:A4;margin:15mm}
+  body{display:block;height:auto;overflow:visible;background:#fff;color:#111}
+  .toc,#toc-backdrop,.toolbar{display:none!important}.reader{height:auto;overflow:visible}
+  .slide{display:block!important;min-height:0;padding:0;break-before:page}.slide:first-child{break-before:auto}
+  .reading-layout{display:block}.report{background:#fff;color:#111;border:0;padding:0}.report strong{color:#111}
+  .report h2,.report h3{break-after:avoid}.report th{background:#eee}.report table{overflow:visible}
+  .guide{position:static;max-height:none;overflow:visible;margin:24px 0}
+  .guide details,.final-reminder{background:#fff;color:#111;break-inside:avoid}
+  .guide p,.source-note,.chapter,.guide h2,.final-reminder strong{color:#333}
+  .guide-content{display:block}
+  .chart{background:#fff;break-inside:avoid}.chart svg{min-width:0}.chart text,.chart .value{fill:#111}
+  .chart .line{stroke:#086c62}.chart .dot,.chart .bar{fill:#086c62}.chart .estimate{fill:#ddd;stroke:#805b12}
+  .chart .flow-box{fill:#eee;stroke:#536273}.chart figcaption{color:#333}
+}
+</style>
+</head>
+<body>
+<button id="toc-backdrop" type="button" tabindex="-1" aria-label="Close report sitemap" hidden></button>
+<aside id="toc" class="toc" aria-label="Report chapters">
+  <button id="toc-close" class="toc-close" type="button" aria-label="Close report sitemap" title="Close report sitemap">&#215;</button>
+  <p class="brand">[SOURCE: report title]</p>
+  <p class="toc-note">Full-text reading deck. Left/right arrows change pages; scroll normally to read.</p>
+  <button class="jump" data-slide="0">Start here / Final action</button>
+  <details open class="toc-group">
+    <summary>[SOURCE: chapter or team]</summary>
+    <button class="jump" data-slide="1">[SOURCE: role or subsection]</button>
+  </details>
+</aside>
+<main id="reader" class="reader">
+  <header class="toolbar">
+    <button id="menu" type="button" aria-label="Toggle report sitemap" title="Toggle report sitemap" aria-controls="toc" aria-expanded="false">&#9776;</button>
+    <div class="decision">FINAL: [SOURCE: final action and immediate constraint]</div>
+    <button id="previous" type="button" aria-label="Previous reading page">&#8592;</button>
+    <span id="counter" role="status" aria-live="polite"></span>
+    <button id="next" type="button" aria-label="Next reading page">&#8594;</button>
+  </header>
+
+  <section id="slide-1" class="slide active" aria-labelledby="title-1">
+    <div class="chapter">Reading overview / [SOURCE: analysis date]</div>
+    <h1 id="title-1" tabindex="-1">[SOURCE: final conclusion, not an intermediate proposal]</h1>
+    <div class="source-note"><span class="mode">Added reading guide</span> Source facts and explanatory additions are distinguished below.</div>
+    <div class="reading-layout">
+      <article class="report">
+        <h2>Final action</h2>
+        <p>[SOURCE: action, prerequisites and relevant uncertainty]</p>
+        <h3>What to do before considering the next step</h3>
+        <ol>
+          <li>[SOURCE: first prerequisite]</li>
+          <li>[SOURCE: next prerequisite or alternative]</li>
+          <li>[SOURCE: confirmation, reduction or reassessment conditions]</li>
+        </ol>
+        <figure class="chart">
+          <h3 class="chart-heading">[SOURCE: final-action flow]</h3>
+          <div class="chart-scroll">
+            <svg viewBox="0 0 640 220" role="img" aria-labelledby="flow-title flow-desc">
+              <title id="flow-title">[SOURCE: accessible chart title]</title>
+              <desc id="flow-desc">[SOURCE: final action, all conditions, alternatives and missing-condition outcome]</desc>
+              <rect class="flow-box" x="40" y="20" width="560" height="65" rx="10"/>
+              <path class="line" d="M320 85V130M313 120L320 130L327 120"/>
+              <rect class="flow-box" x="40" y="135" width="560" height="65" rx="10"/>
+              <text class="value" x="320" y="59" text-anchor="middle">[SOURCE: final action]</text>
+              <text x="320" y="173" text-anchor="middle">[SOURCE: next conditional step]</text>
+            </svg>
+          </div>
+          <figcaption><strong>How to read:</strong> [EXPLANATION: preserve every source gate; missing conditions do not authorize the next action.]</figcaption>
+        </figure>
+        <p>[SOURCE: metadata, attribution and data limits]</p>
+      </article>
+      <aside class="guide" aria-label="Plain-English reading guide">
+        <div class="guide-panel">
+        <h2>Plain-English guide</h2>
+        <div class="guide-content">
+        <p class="guide-label">Explanations, separate from source evidence</p>
+        <details open><summary>Main point</summary><p>[EXPLANATION: what the final action means for the reader]</p></details>
+        <details open><summary>How to read the report</summary><p>[EXPLANATION: where to find full decisions and why intermediate ratings may differ]</p></details>
+        <div class="final-reminder"><strong>Final action: [SOURCE: action]</strong><p>[SOURCE: condition that prevents confusing a proposal with approval]</p></div>
+        </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- Duplicate complete reading sections and matching chapter buttons; keep indices synchronized. -->
+  <section id="slide-2" class="slide" aria-labelledby="title-2">
+    <div class="chapter">[SOURCE: chapter or team]</div>
+    <h1 id="title-2" tabindex="-1">[SOURCE: role / subsection / debate round]</h1>
+    <div class="source-note"><span class="mode">Full source text</span> Formatting is adapted for reading; source claims are not independently verified.</div>
+    <div class="reading-layout">
+      <article class="report">
+        <h2>[SOURCE: original section heading]</h2>
+        <p>[SOURCE: complete original content, not a short presentation summary]</p>
+        <p>[SOURCE: preserve all reasoning, evidence, objections, qualifiers and conditions]</p>
+        <table>
+          <thead><tr><th>[SOURCE: column heading]</th><th>[SOURCE: column heading]</th></tr></thead>
+          <tbody><tr><td>[SOURCE: original table entry]</td><td>[SOURCE: original value with units]</td></tr></tbody>
+        </table>
+        <p>[SOURCE: complete original conclusion and caveats]</p>
+      </article>
+      <aside class="guide" aria-label="Plain-English reading guide">
+        <div class="guide-panel">
+        <h2>Plain-English guide</h2>
+        <div class="guide-content">
+        <p class="guide-label">Educational explanations, not new facts or recommendations</p>
+        <details open><summary>Main point</summary><p>[EXPLANATION: source-supported takeaway]</p></details>
+        <details open><summary>Key terms</summary><p>[EXPLANATION: beginner-friendly definitions relevant to this section]</p></details>
+        <details open><summary>What remains uncertain</summary><p>[SOURCE: unverified data, estimates or disputed assumptions]</p></details>
+        <details open><summary>Connection to the final action</summary><p>[EXPLANATION: distinguish this section's proposal from the final decision]</p></details>
+        <div class="final-reminder"><strong>Final action: [SOURCE: action]</strong><p>[SOURCE: immediate constraint or prerequisite]</p></div>
+        </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+</main>
+<script>
+const slides=[...document.querySelectorAll('.slide')],jumps=[...document.querySelectorAll('.jump')];
+const reader=document.getElementById('reader'),counter=document.getElementById('counter');
+const previous=document.getElementById('previous'),next=document.getElementById('next');
+const toc=document.getElementById('toc'),menu=document.getElementById('menu');
+const backdrop=document.getElementById('toc-backdrop'),tocClose=document.getElementById('toc-close');
+const compactLayout=matchMedia('(max-width:1024px)');
+let sitemapExpanded=!compactLayout.matches;
+let index=0;
+function setSitemapExpanded(expanded,moveFocus=false){
+  sitemapExpanded=expanded;
+  toc.classList.toggle('open',compactLayout.matches&&expanded);
+  document.body.classList.toggle('toc-collapsed',!compactLayout.matches&&!expanded);
+  toc.inert=!expanded;
+  const overlayOpen=compactLayout.matches&&expanded;
+  backdrop.hidden=!overlayOpen;
+  reader.inert=overlayOpen;
+  if(overlayOpen){toc.setAttribute('role','dialog');toc.setAttribute('aria-modal','true')}
+  else{toc.removeAttribute('role');toc.removeAttribute('aria-modal')}
+  menu.setAttribute('aria-expanded',String(expanded));
+  const label=expanded?'Collapse report sitemap':'Expand report sitemap';
+  menu.setAttribute('aria-label',label);menu.title=label;
+  if(moveFocus)(expanded?jumps[0]:menu).focus({preventScroll:true});
+}
+function closeMenu(){if(compactLayout.matches)setSitemapExpanded(false,toc.contains(document.activeElement))}
+function go(value){
+  index=Math.max(0,Math.min(slides.length-1,value));
+  slides.forEach((slide,i)=>{slide.classList.toggle('active',i===index);slide.setAttribute('aria-hidden',String(i!==index))});
+  jumps.forEach(button=>{if(Number(button.dataset.slide)===index)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current')});
+  counter.textContent=(index+1)+' / '+slides.length;
+  previous.disabled=index===0;next.disabled=index===slides.length-1;
+  reader.scrollTop=0;closeMenu();history.replaceState(null,'','#'+(index+1));
+}
+jumps.forEach(button=>button.addEventListener('click',()=>{
+  go(Number(button.dataset.slide));slides[index].querySelector('h1').focus({preventScroll:true});
+}));
+previous.addEventListener('click',()=>go(index-1));next.addEventListener('click',()=>go(index+1));
+menu.addEventListener('click',()=>setSitemapExpanded(!sitemapExpanded,true));
+backdrop.addEventListener('click',()=>setSitemapExpanded(false,true));
+tocClose.addEventListener('click',()=>setSitemapExpanded(false,true));
+compactLayout.addEventListener('change',()=>setSitemapExpanded(!compactLayout.matches,compactLayout.matches&&toc.contains(document.activeElement)));
+addEventListener('keydown',event=>{
+  if(event.key==='Escape'){if(sitemapExpanded)setSitemapExpanded(false,true);return}
+  if(event.key==='Tab'&&compactLayout.matches&&sitemapExpanded){
+    const controls=[...toc.querySelectorAll('button:not(:disabled),a[href],summary')].filter(control=>control.getClientRects().length);
+    const first=controls[0],last=controls.at(-1);
+    if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}
+    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}
+    return;
+  }
+  if(event.target.closest('input,textarea,select,[contenteditable=true]'))return;
+  if(getSelection()?.toString())return;
+  if(event.key==='ArrowRight'){event.preventDefault();go(index+1)}
+  if(event.key==='ArrowLeft'){event.preventDefault();go(index-1)}
+});
+addEventListener('hashchange',()=>go((parseInt(location.hash.slice(1))||1)-1));
+document.querySelectorAll('.report a[href]').forEach(link=>{
+  const href=link.getAttribute('href');
+  if(/^https?:\/\//i.test(href)){link.target='_blank';link.rel='noopener noreferrer'}
+  else if(!href.startsWith('#'))link.removeAttribute('href');
+});
+setSitemapExpanded(sitemapExpanded);
+go((parseInt(location.hash.slice(1))||1)-1);
+</script>
+</body>
+</html>

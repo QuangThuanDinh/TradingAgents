@@ -68,6 +68,11 @@ def analyze(
         None, "--html/--no-html",
         help="Save the report as one HTML page too, complete_report.html, without asking (default: yes)",
     ),
+    reading_slides: bool | None = typer.Option(
+        None, "--reading-slides/--no-reading-slides",
+        help="Generate an extra full-text reading deck after saving, using the selected deep model. "
+        "Adds model calls, tokens and time. Omit to honor TRADINGAGENTS_READING_SLIDES (default: off).",
+    ),
 ):
     """Run an analysis. This is what a bare `tradingagents` does.
 
@@ -76,6 +81,11 @@ def analyze(
     """
     if ctx.invoked_subcommand is not None:
         return
+    slides_enabled = DEFAULT_CONFIG.get("reading_slides", False) if reading_slides is None else reading_slides
+    if slides_enabled:
+        if save is False:
+            raise typer.BadParameter("Reading slides require saved reports; use --save, not --no-save.")
+        save = True
     if clear_checkpoints:
         from tradingagents.graph.checkpointer import clear_all_checkpoints
         n = clear_all_checkpoints(DEFAULT_CONFIG["data_cache_dir"])
@@ -90,6 +100,8 @@ def analyze(
 
     try:
         flags = {"ticker": ticker, "date": date, "analysts": analysts, "save": save, "show": show, "html": html}
+        if reading_slides is not None:
+            flags["reading_slides"] = reading_slides
         run_analysis(checkpoint=checkpoint, portfolio=portfolio_context, flags=flags)
     except _NO_CONSOLE_ERRORS:
         # A terminal with no console buffer cannot host the interactive prompts.

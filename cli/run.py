@@ -9,6 +9,7 @@ from pathlib import Path
 
 import typer
 from rich.live import Live
+from rich.markup import escape
 
 from cli.display import (
     ANALYST_ORDER,
@@ -111,6 +112,8 @@ def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None):
     selections = get_user_selections(flags)
 
     config = _build_run_config(selections, checkpoint)
+    if flags.get("reading_slides") is not None:
+        config["reading_slides"] = flags["reading_slides"]
 
     stats_handler = StatsCallbackHandler()
 
@@ -450,6 +453,11 @@ def _offer_reports(final_state, graph, ticker, save=None, show=None, html=None):
             saved = True
             console.print(f"\n[green]✓ Report saved to:[/green] {save_path.resolve()}")
             console.print(f"  [dim]Complete report:[/dim] {report_file.name}")
+            slides = save_path / "reading_slides.html"
+            if slides.is_file() and not getattr(graph, "report_warnings", []):
+                console.print(f"  [dim]Reading slides:[/dim] {slides.name}")
+            for warning in getattr(graph, "report_warnings", []):
+                console.print(f"[yellow]Warning: {escape(warning)}[/yellow]")
         except Exception as e:
             console.print(f"[red]Error saving report: {e}[/red]")
         if saved and html:

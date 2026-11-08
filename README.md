@@ -155,7 +155,9 @@ docker compose --profile ollama run --rm tradingagents-ollama
 
 ### Private CLI image for this fork
 
-Fork version **0.7.2** adds native report-length presets and defaults
+Fork version **0.7.3** adds optional full-text reading slides using the selected
+deep model and a packaged skill/template. Native report-length presets remain,
+with defaults
 `get_news`/`get_global_news` to `alpha_vantage,yfinance`: Alpha Vantage first,
 Yahoo as fallback. Supply `ALPHA_VANTAGE_API_KEY` through your existing CLI
 environment file. Other tools retain their category defaults.
@@ -168,7 +170,7 @@ the declared runtime/test/build dependencies, runs offline tests and lint, then
 builds the existing Dockerfile for **linux/amd64**. The build may download the
 Python base image and declared packages. No model APIs are called.
 
-The workflow publishes `ghcr.io/quangthuandinh/tradingagents-cli:0.7.2` and `:latest`
+The workflow publishes `ghcr.io/quangthuandinh/tradingagents-cli:0.7.3` and `:latest`
 using the private publishing repository's temporary `GITHUB_TOKEN` with
 package-write permission. It requires a private publishing repository, refuses
 an existing non-private package and verifies privacy before updating `latest`.
@@ -190,12 +192,54 @@ Compose directory is:
 docker compose --profile cli pull tradingagents-cli
 ```
 
-Use viewer/runner **1.0.12** and matching host-mounted `cli_bridge.py` and
-`analysis_options.py`: older runner images reject CLI 0.7.2. The existing runner
+Use viewer/runner **1.0.13** and matching host-mounted `cli_bridge.py` and
+`analysis_options.py` for reading slides. The existing runner
 continues to launch the external CLI with `--pull never`, not install/download
 it. No additional runtime services or ports are introduced; existing API keys,
 Docker permissions, configuration and execution path are unchanged. Publishing
 an image neither starts an analysis nor updates a running deployment.
+
+### Optional full-text reading slides
+
+Use `tradingagents --reading-slides` with your normal analysis options, or set
+`TRADINGAGENTS_READING_SLIDES=true`. Default is off. Enabling slides implies
+saving reports; `--no-save` is rejected. `--no-reading-slides` overrides the
+environment. Programmatic callers can set `config["reading_slides"] = True`
+and use `TradingAgentsGraph.save_reports()`.
+
+Primary Markdown/HTML reports are saved first. The same selected deep LLM
+client then makes one additional call per available role (up to twelve),
+reusing its provider, endpoint, credentials, reasoning/token/retry settings
+and usage callbacks. These extra calls add cost and time; they do not rerun or
+change the financial analysis. The packaged `html-report-slides` skill supplies
+reading instructions; the model returns validated JSON explanations and approved
+risk summaries, not code. Guides are in English for readers new to finance.
+
+`reading_slides.html` is assembled deterministically from the original full
+analyst reports, every research round, Research Manager, full Trader and full
+Portfolio Manager decisions. Each risk analyst has one labeled condensed page;
+the complete original risk Markdown remains saved. Inline SVG shows the report's
+decision stages, with source-only closing-price bars when an explicit date/close
+table is available. Charts never fetch data or invent missing values. Guide
+explanations and source facts are not independently verified.
+
+Open the standalone file in a browser: previous/next or left/right arrows change
+pages; scroll normally to read. The Plain-English guide stays side-by-side,
+including small screens. At 1024px and below the sitemap starts collapsed and
+opens as a dismissible modal overlay. Printing includes every full reading page.
+The standalone file defaults to dark; the viewer can apply its saved light/dark
+reader preference without altering the original download.
+The only executable script is authored template navigation, restricted by its
+CSP hash; source/model text is escaped. No external resources are loaded.
+
+Generation errors preserve primary reports and emit an explicit warning and
+diagnostics; an outdated deck is removed when the report directory is reused.
+This uses existing Markdown and LLM dependencies, no new service, port,
+credential, permission, dependency or runtime download. Rebuild/update the
+existing CLI installation/image to package the skill and template. This feature
+is included in source version 0.7.3; publishing an image does not update an
+existing deployment. Viewer/runner integration requires version 1.0.13 and
+matching host-mounted adapter files.
 
 ### Required APIs
 

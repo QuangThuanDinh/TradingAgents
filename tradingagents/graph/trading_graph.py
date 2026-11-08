@@ -41,10 +41,11 @@ def _validate_trade_date(trade_date) -> str:
     return value
 
 
-# Config keys that do not change what a run writes: where it keeps its files,
-# whether it checkpoints, and how often it retries a provider.
+# Config keys that do not change the analysis: storage, checkpointing, retries
+# and optional post-analysis reading decks.
 _NOT_IN_SIGNATURE = frozenset({
     "results_dir", "data_cache_dir", "memory_log_path", "checkpoint_enabled", "llm_max_retries",
+    "reading_slides",
 })
 
 
@@ -69,6 +70,8 @@ class TradingAgentsGraph:
         self.debug = debug
         self.config = config or DEFAULT_CONFIG
         self.callbacks = callbacks or []
+        if type(self.config.get("reading_slides", False)) is not bool:
+            raise ValueError("reading_slides must be true or false.")
 
         set_config(self.config)
 
@@ -271,6 +274,7 @@ class TradingAgentsGraph:
             "max_risk_discuss_rounds": cfg.get("max_risk_discuss_rounds"),
             "output_language": cfg.get("output_language"),
             "report_length": validate_report_length(cfg.get("report_length", "standard")),
+            "reading_slides": cfg.get("reading_slides", False),
             "data_vendors": dict(cfg.get("data_vendors") or {}),
             "tool_vendors": dict(cfg.get("tool_vendors") or {}),
         }
@@ -284,7 +288,31 @@ class TradingAgentsGraph:
         """
         if save_path is None:
             save_path = self.default_report_path(ticker)
-        return write_report_tree(final_state, ticker, save_path, settings=self.run_settings(), html=html)
+        settings = self.run_settings()
+        result = write_report_tree(final_state, ticker, save_path, settings=settings, html=html)
+        self.report_warnings = []
+        try:
+            (Path(save_path) / "reading_slides.html").unlink(missing_ok=True)
+        except OSError:
+            logger.exception("Could not remove the previous reading deck; primary reports are saved")
+            self.report_warnings.append("Could not remove an outdated reading deck. Primary reports are saved.")
+            return result
+        if settings.get("reading_slides", False):
+            from tradingagents.reading_slides import GENERATION_ERRORS, write_reading_slides
+
+            try:
+                write_reading_slides(
+                    final_state, ticker, save_path, self.deep_thinking_llm,
+                    progress=getattr(self, "reading_slides_progress", None),
+                )
+            except GENERATION_ERRORS as exc:
+                logger.exception("Reading-slides generation failed; primary reports are saved")
+                self.report_warnings.append(
+                    f"Reading slides could not be generated ({type(exc).__name__}). "
+                    "Primary reports are saved. Check the selected deep model, "
+                    "its credentials and output/token settings."
+                )
+        return result
 
     def default_report_path(self, ticker) -> Path:
         """Where a run's reports go unless told otherwise: under results_dir, stamped now."""

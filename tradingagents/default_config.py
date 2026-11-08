@@ -27,6 +27,7 @@ _ENV_OVERRIDES = {
     "TRADINGAGENTS_LLM_BACKEND_URL":      "backend_url",
     "TRADINGAGENTS_OUTPUT_LANGUAGE":      "output_language",
     "TRADINGAGENTS_REPORT_LENGTH":        "report_length",
+    "TRADINGAGENTS_READING_SLIDES":       "reading_slides",
     "TRADINGAGENTS_MAX_DEBATE_ROUNDS":    "max_debate_rounds",
     "TRADINGAGENTS_MAX_RISK_ROUNDS":      "max_risk_discuss_rounds",
     "TRADINGAGENTS_MAX_TOOL_ROUNDS":      "max_tool_rounds",
@@ -142,6 +143,7 @@ def build_default_config() -> dict:
         "output_language": "English",
         # Prompt verbosity for each analyst report, plan and final decision.
         "report_length": "standard",
+        "reading_slides": False,
         # Debate and discussion settings
         "max_debate_rounds": 1,
         "max_risk_discuss_rounds": 1,

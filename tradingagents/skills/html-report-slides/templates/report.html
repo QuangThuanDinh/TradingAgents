@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Report Title</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+:root{--bg:#f6f7f9;--fg:#1f2328;--muted:#5b6470;--accent:#0078D4;--card:#fff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Segoe UI",system-ui,sans-serif;line-height:1.6}
+header{background:linear-gradient(135deg,var(--accent),#3a96dd);color:#fff;padding:56px 8vw 72px}
+header h1{margin:.2em 0;font-size:clamp(1.8rem,4vw,3rem)}
+header p{opacity:.9;margin:0}
+main{max-width:1100px;margin:-40px auto 60px;padding:0 24px;display:grid;gap:24px}
+.card{background:var(--card);border-radius:14px;padding:28px 32px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.kpi{background:var(--card);border-radius:14px;padding:20px 24px;box-shadow:0 2px 10px rgba(0,0,0,.06);border-left:5px solid var(--accent)}
+.kpi b{display:block;font-size:2.2rem}
+.kpi span{color:var(--muted)}
+.delta.up{color:#107c10}.delta.down{color:#c50f1f}
+h2{margin-top:0;font-size:1.4rem}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid #e5e7eb}
+th{color:var(--muted);font-weight:600;font-size:.9rem;text-transform:uppercase;letter-spacing:.04em}
+.tag{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.8rem;background:#e8f1fb;color:var(--accent)}
+footer{text-align:center;color:var(--muted);font-size:.85rem;padding-bottom:40px}
+@media print{header{-webkit-print-color-adjust:exact;print-color-adjust:exact}.card,.kpi{box-shadow:none;break-inside:avoid}}
+</style>
+</head>
+<body>
+<header>
+  <div>Team / Date</div>
+  <h1>Report title that states the conclusion</h1>
+  <p>One-line scope of the report</p>
+</header>
+<main>
+  <section class="card">
+    <h2>Executive summary</h2>
+    <ul><li>Key takeaway one</li><li>Key takeaway two</li><li>Ask / decision needed</li></ul>
+  </section>
+
+  <section class="kpis">
+    <div class="kpi"><span>Metric</span><b>42%</b><span class="delta up">&#9650; 5 pts</span></div>
+    <div class="kpi"><span>Metric</span><b>1.2s</b><span class="delta down">&#9660; 0.3s</span></div>
+    <div class="kpi"><span>Metric</span><b>128</b><span>vs. 100 target</span></div>
+  </section>
+
+  <section class="card">
+    <h2>Trend</h2>
+    <canvas id="c1" height="110" aria-label="Trend chart"></canvas>
+  </section>
+
+  <section class="card">
+    <h2>Flow</h2>
+    <pre class="mermaid">flowchart LR
+  A[Input] --> B[Process] --> C[Output]</pre>
+  </section>
+
+  <section class="card">
+    <h2>Details</h2>
+    <table>
+      <thead><tr><th>Item</th><th>Owner</th><th>Status</th></tr></thead>
+      <tbody><tr><td>Item one</td><td>Name</td><td><span class="tag">On track</span></td></tr></tbody>
+    </table>
+  </section>
+</main>
+<footer>Generated report</footer>
+<script>
+mermaid.initialize({startOnLoad:true});
+new Chart(document.getElementById('c1'),{type:'bar',data:{labels:['Jan','Feb','Mar','Apr'],datasets:[{label:'Metric',data:[12,19,15,24],backgroundColor:'#0078D4',borderRadius:6}]},options:{plugins:{legend:{display:false}}}});
+</script>
+</body>
+</html>

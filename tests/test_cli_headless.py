@@ -145,6 +145,26 @@ def test_the_command_passes_its_flags_to_the_run(monkeypatch):
 
 
 @pytest.mark.unit
+def test_reading_slides_flag_implies_save_and_rejects_no_save_before_running(monkeypatch):
+    from typer.testing import CliRunner
+
+    from cli import main as cli_main
+
+    seen = {}
+    monkeypatch.setattr(cli_main, "run_analysis", lambda **kwargs: seen.update(kwargs))
+    runner = CliRunner()
+    result = runner.invoke(cli_main.app, ["--reading-slides"])
+    assert result.exit_code == 0, result.output
+    assert seen["flags"]["save"] is True
+    assert seen["flags"]["reading_slides"] is True
+    seen.clear()
+    result = runner.invoke(cli_main.app, ["--reading-slides", "--no-save"])
+    assert result.exit_code != 0
+    assert "require saved reports" in result.output
+    assert not seen
+
+
+@pytest.mark.unit
 def test_sentiment_names_the_sentiment_analyst():
     assert prompts.parse_analysts("sentiment,market", AssetType.STOCK) == [AnalystType.MARKET, AnalystType.SOCIAL]
 
