@@ -54,6 +54,10 @@ _THEME_CSS = """
 """
 
 
+class ReadingSlidesValidationError(ValueError):
+    """Renderer-owned validation reason, safe to include in public warnings."""
+
+
 def _explanations(llm, skill, agent, source, decision, risk):
     instructions = (
         skill + "\n\nNative reading renderer contract (overrides HTML output instructions):\n"
@@ -87,24 +91,36 @@ def _explanations(llm, skill, agent, source, decision, risk):
             and isinstance(block.get("text"), str)
         )
     if not isinstance(content, str):
-        raise ValueError(f"{agent}: deep model returned no text.")
+        raise ReadingSlidesValidationError(f"{agent}: deep model returned no text.")
     content = re.sub(r"^```(?:json)?\s*\n([\s\S]*?)\n```$", r"\1", content.strip())
-    result = json.loads(content)
+    try:
+        result = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise ReadingSlidesValidationError(
+            f"{agent}: deep model returned invalid JSON (line {exc.lineno}, column {exc.colno})."
+        ) from exc
     if not isinstance(result, dict) or set(result) != {*_GUIDE_FIELDS, "risk_summary"}:
-        raise ValueError(f"{agent}: invalid reading-guide fields.")
+        raise ReadingSlidesValidationError(
+            f"{agent}: JSON must contain exactly main_point, terms, uncertainty, "
+            "final_action_connection and risk_summary."
+        )
     for field in _GUIDE_FIELDS:
-        if not isinstance(result[field], str) or not result[field].strip() or len(result[field]) > 1800:
-            raise ValueError(f"{agent}: invalid {field}.")
+        if not isinstance(result[field], str) or not result[field].strip():
+            raise ReadingSlidesValidationError(f"{agent}: {field} must be nonempty text.")
+        if len(result[field]) > 1800:
+            raise ReadingSlidesValidationError(f"{agent}: {field} exceeds 1800 characters.")
     summary = result["risk_summary"]
     if risk:
-        if not isinstance(summary, str) or not summary.strip() or len(summary.split()) > 300:
-            raise ValueError(f"{agent}: missing or oversized risk summary.")
+        if not isinstance(summary, str) or not summary.strip():
+            raise ReadingSlidesValidationError(f"{agent}: risk_summary must be nonempty Markdown.")
+        if len(summary.split()) > 300:
+            raise ReadingSlidesValidationError(f"{agent}: risk_summary exceeds 300 words.")
     elif summary is not None:
-        raise ValueError(f"{agent}: full source must not be summarized.")
+        raise ReadingSlidesValidationError(f"{agent}: risk_summary must be null for a non-risk role.")
     known = {Decimal(number.replace(",", "")) for number in _NUMBERS.findall(source + "\n" + decision)}
     generated = "\n".join(result[field] for field in _GUIDE_FIELDS) + (summary or "")
     if any(Decimal(number.replace(",", "")) not in known for number in _NUMBERS.findall(generated)):
-        raise ValueError(f"{agent}: explanation contains a number absent from its source.")
+        raise ReadingSlidesValidationError(f"{agent}: explanation contains a number absent from its source.")
     return result
 
 
@@ -230,17 +246,17 @@ def write_reading_slides(final_state, ticker, save_path, llm, progress=None) -> 
     """Use the selected deep client once per available role; never ask it for code."""
     parts = _report_parts(final_state)
     if not parts or not final_state.get("final_trade_decision"):
-        raise ValueError("Reading slides require source reports and a Portfolio Manager decision.")
+        raise ReadingSlidesValidationError("Reading slides require source reports and a Portfolio Manager decision.")
     saved_markdown = (Path(save_path) / "complete_report.md").read_text(encoding="utf-8")
     header, marker, _ = saved_markdown.partition(f"## {parts[0][0]}\n")
     if not marker:
-        raise ValueError("Saved Markdown does not match this report's team structure.")
+        raise ReadingSlidesValidationError("Saved Markdown does not match this report's team structure.")
     template = _ASSETS.joinpath("templates/reading-slides.html").read_text(encoding="utf-8")
     skill = _ASSETS.joinpath("SKILL.md").read_text(encoding="utf-8")
     style_match = re.search(r"<style>([\s\S]*?)</style>", template)
     script_match = re.search(r"<script>([\s\S]*?)</script>", template)
     if not style_match or not script_match:
-        raise ValueError("Bundled reading template is missing its authored styles or navigation.")
+        raise ReadingSlidesValidationError("Bundled reading template is missing its authored styles or navigation.")
     css, script = style_match.group(1) + _THEME_CSS, script_match.group(1)
     md = MarkdownIt("commonmark", {"html": False}).enable("table").disable("image")
     rating = run_rating(final_state)
@@ -267,7 +283,7 @@ def write_reading_slides(final_state, ticker, save_path, llm, progress=None) -> 
             if progress:
                 progress(done, total)
     if overview is None:
-        raise ValueError("Reading slides require the Portfolio Manager's explanation.")
+        raise ReadingSlidesValidationError("Reading slides require the Portfolio Manager's explanation.")
     introduction = (
         '<h2>Final action in plain English</h2>'
         '<p>Added educational explanation; read the complete final decision and its conditions '

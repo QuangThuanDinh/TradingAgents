@@ -155,8 +155,9 @@ docker compose --profile ollama run --rm tradingagents-ollama
 
 ### Private CLI image for this fork
 
-Fork version **0.7.3** adds optional full-text reading slides using the selected
-deep model and a packaged skill/template. Native report-length presets remain,
+Fork version **0.7.4** adds safe, role-specific reading-slide validation warnings.
+Optional full-text reading slides use the selected deep model and a packaged
+skill/template. Native report-length presets remain,
 with defaults
 `get_news`/`get_global_news` to `alpha_vantage,yfinance`: Alpha Vantage first,
 Yahoo as fallback. Supply `ALPHA_VANTAGE_API_KEY` through your existing CLI
@@ -170,7 +171,7 @@ the declared runtime/test/build dependencies, runs offline tests and lint, then
 builds the existing Dockerfile for **linux/amd64**. The build may download the
 Python base image and declared packages. No model APIs are called.
 
-The workflow publishes `ghcr.io/quangthuandinh/tradingagents-cli:0.7.3` and `:latest`
+The workflow publishes `ghcr.io/quangthuandinh/tradingagents-cli:0.7.4` and `:latest`
 using the private publishing repository's temporary `GITHUB_TOKEN` with
 package-write permission. It requires a private publishing repository, refuses
 an existing non-private package and verifies privacy before updating `latest`.
@@ -234,6 +235,10 @@ CSP hash; source/model text is escaped. No external resources are loaded.
 
 Generation errors preserve primary reports and emit an explicit warning and
 diagnostics; an outdated deck is removed when the report directory is reused.
+Renderer-owned validation warnings identify the failing role and reason, such
+as invalid JSON, a guide length limit or an unsupported number. They do not
+include model response text or source excerpts. Raw provider exception messages
+remain in native diagnostic logging, not successful viewer job warnings.
 This uses existing Markdown and LLM dependencies, no new service, port,
 credential, permission, dependency or runtime download. Rebuild/update the
 existing CLI installation/image to package the skill and template. This feature

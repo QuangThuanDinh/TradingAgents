@@ -130,7 +130,41 @@ def test_slide_failures_warn_without_losing_main_reports(tmp_path, caplog, failu
     assert (tmp_path / "5_portfolio" / "decision.md").read_text(encoding="utf-8") == state()["final_trade_decision"]
     assert len(graph.report_warnings) == 1
     assert "Primary reports are saved" in graph.report_warnings[0]
+    assert str(failure) not in graph.report_warnings[0]
     assert "Reading-slides generation failed" in caplog.text
+    assert not (tmp_path / "reading_slides.html").exists()
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(("response", "reason"), [
+    ('{"private-source-text":', "deep model returned invalid JSON"),
+    (json.dumps({
+        "main_point": "Private explanation containing invented 987654%.",
+        "terms": "Funding means paying for a purchase.",
+        "uncertainty": "Source conditions still apply.",
+        "final_action_connection": "Read the final decision.",
+        "risk_summary": None,
+    }), "explanation contains a number absent from its source"),
+    (json.dumps({
+        "main_point": "private-source-text" * 110,
+        "terms": "Funding means paying for a purchase.",
+        "uncertainty": "Source conditions still apply.",
+        "final_action_connection": "Read the final decision.",
+        "risk_summary": None,
+    }), "main_point exceeds 1800 characters"),
+])
+def test_renderer_validation_warning_exposes_role_and_safe_reason_only(tmp_path, response, reason):
+    model = Model()
+    model.invoke = lambda messages: SimpleNamespace(content=response)
+    graph = SimpleNamespace(run_settings=lambda: {"reading_slides": True}, deep_thinking_llm=model)
+    output = TradingAgentsGraph.save_reports(graph, state(), "TEST", tmp_path)
+    warning = graph.report_warnings[0]
+    assert f"Market Analyst: {reason}" in warning
+    assert "private-source-text" not in warning
+    assert "Private explanation" not in warning
+    assert "987654" not in warning
+    assert output.is_file()
+    assert (tmp_path / "complete_report.html").is_file()
     assert not (tmp_path / "reading_slides.html").exists()
 
 

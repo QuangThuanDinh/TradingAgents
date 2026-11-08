@@ -298,7 +298,11 @@ class TradingAgentsGraph:
             self.report_warnings.append("Could not remove an outdated reading deck. Primary reports are saved.")
             return result
         if settings.get("reading_slides", False):
-            from tradingagents.reading_slides import GENERATION_ERRORS, write_reading_slides
+            from tradingagents.reading_slides import (
+                GENERATION_ERRORS,
+                ReadingSlidesValidationError,
+                write_reading_slides,
+            )
 
             try:
                 write_reading_slides(
@@ -307,9 +311,10 @@ class TradingAgentsGraph:
                 )
             except GENERATION_ERRORS as exc:
                 logger.exception("Reading-slides generation failed; primary reports are saved")
+                reason = f"{exc} " if isinstance(exc, ReadingSlidesValidationError) else ""
                 self.report_warnings.append(
                     f"Reading slides could not be generated ({type(exc).__name__}). "
-                    "Primary reports are saved. Check the selected deep model, "
+                    f"{reason}Primary reports are saved. Check the selected deep model, "
                     "its credentials and output/token settings."
                 )
         return result
