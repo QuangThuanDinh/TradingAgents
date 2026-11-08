@@ -160,18 +160,23 @@ Fork version **0.7.2** adds native report-length presets and defaults
 Yahoo as fallback. Supply `ALPHA_VANTAGE_API_KEY` through your existing CLI
 environment file. Other tools retain their category defaults.
 
-`.github/workflows/publish-container.yml` runs on GitHub-hosted Ubuntu runners
-when a version tag is pushed, or via **Publish private CLI image > Run workflow**
-with an existing tag. Cancel it in GitHub Actions to stop a build. It installs
+The **Publish private external CLI** workflow in the private
+`QuangThuanDinh/tradingagents-view` repository runs on GitHub-hosted Ubuntu runners
+via **Run workflow** with this fork's existing tag. It checks out this fork only
+in the cloud build workspace. Cancel it in GitHub Actions to stop a build. It installs
 the declared runtime/test/build dependencies, runs offline tests and lint, then
 builds the existing Dockerfile for **linux/amd64**. The build may download the
 Python base image and declared packages. No model APIs are called.
 
-The workflow publishes `ghcr.io/quangthuandinh/tradingagents:0.7.2` and `:latest`
-using the repository's temporary `GITHUB_TOKEN` with package-write permission.
-New GHCR packages default to private; publication refuses an existing non-private
-package and verifies privacy before updating `latest`. **Only the image is
-private: this fork's source and Actions logs remain public.** Never commit API
+The workflow publishes `ghcr.io/quangthuandinh/tradingagents-cli:0.7.2` and `:latest`
+using the private publishing repository's temporary `GITHUB_TOKEN` with
+package-write permission. It requires a private publishing repository, refuses
+an existing non-private package and verifies privacy before updating `latest`.
+**The image and publication logs are private; this fork's source and ordinary
+CI logs remain public.** The package is associated with the private publishing
+repository; its source URL/revision labels identify this external fork.
+The failed public-fork publication workflow has been removed.
+Never commit API
 keys or credentials; `.dockerignore` excludes `.env` files and the local `.venv`.
 
 For Dockhand, configure GHCR access using a GitHub username and classic PAT with
