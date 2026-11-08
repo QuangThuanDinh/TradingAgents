@@ -64,6 +64,37 @@ def test_help_lists_the_backtest_command(runner):
     assert "backtest" in runner.invoke(m.app, ["--help"]).output
 
 
+@pytest.mark.unit
+def test_saved_reading_slides_command_does_not_run_analysis(runner, monkeypatch, tmp_path):
+    report = tmp_path / "complete_report.md"
+    report.write_text("Original report", encoding="utf-8")
+    generated = []
+    monkeypatch.setattr(m, "generate_reading_slides",
+                        lambda path: generated.append(path) or tmp_path / "reading_slides.html")
+    result = runner.invoke(m.app, ["reading-slides", str(report)])
+    assert result.exit_code == 0, result.output
+    assert generated == [report]
+    assert calls == []
+    assert report.read_text(encoding="utf-8") == "Original report"
+
+
+@pytest.mark.unit
+def test_saved_reading_slides_command_reports_safe_validation_errors(runner, monkeypatch, tmp_path):
+    from tradingagents.reading_slides import ReadingSlidesValidationError
+
+    report = tmp_path / "complete_report.md"
+    report.write_text("Original report", encoding="utf-8")
+
+    def fail(path):
+        raise ReadingSlidesValidationError("Reading guides: invalid JSON.")
+
+    monkeypatch.setattr(m, "generate_reading_slides", fail)
+    result = runner.invoke(m.app, ["reading-slides", str(report)])
+    assert result.exit_code == 1
+    assert "Reading guides: invalid JSON." in result.output
+    assert calls == []
+
+
 class _Result:
     def __init__(self, tmp_path):
         self.run_id = "20260916_000000"

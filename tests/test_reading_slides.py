@@ -11,7 +11,12 @@ from openai import APIConnectionError
 
 from tradingagents.default_config import build_default_config
 from tradingagents.graph.trading_graph import TradingAgentsGraph
-from tradingagents.reading_slides import _explanations, _research_pages, write_reading_slides
+from tradingagents.reading_slides import (
+    _explanations,
+    _research_pages,
+    write_reading_slides,
+    write_reading_slides_from_markdown,
+)
 from tradingagents.reporting import write_report_tree
 
 
@@ -50,15 +55,21 @@ class Model:
         if self.failure:
             raise self.failure
         source = json.loads(messages[1][1])
-        return SimpleNamespace(content=json.dumps({
+        return SimpleNamespace(content=json.dumps({"guides": {role["role"]: {
             "main_point": "Read the source reasoning without treating a proposal as approval.",
             "terms": "Funding means how a proposed purchase would be paid for.",
             "uncertainty": "The report's data and conditions are not independently verified.",
             "final_action_connection": "The final Hold decision does not permit a new purchase "
                                        "before funding and protection are confirmed.",
             "risk_summary": "This analyst challenges the plan; uncertainties and conditions "
-                            "still apply." if source["condense_risk"] else None,
-        }))
+                            "still apply." if role["condense_risk"] else None,
+        } for role in source["roles"]}}))
+
+@pytest.mark.unit
+def test_duplicate_guide_json_fields_fail_without_retry():
+    model = SimpleNamespace(invoke=lambda _: SimpleNamespace(content='{"guides": {}, "guides": {}}'))
+    with pytest.raises(ValueError, match="duplicate JSON fields"):
+        _explanations(model, "", {"Market Analyst": False}, "Source evidence.")
 
 
 @pytest.mark.unit
@@ -83,8 +94,9 @@ def test_full_source_rounds_and_decisions_with_only_risk_condensed(tmp_path):
         pages = _research_pages(role, original)
         assert "".join(text for _, text in pages) == original
         assert all(md.render(text) in html for _, text in pages)
-    assert len(model.calls) == 12
-    assert progress == [(i, 12) for i in range(13)]
+    assert len(model.calls) == 1
+    assert json.loads(model.calls[0][1][1])["complete_report.md"] == markdown
+    assert progress == [(0, 1), (1, 1)]
     assert html.count('class="mode">Condensed source summary') == 3
     assert len(re.findall(r'<section id="slide-', html)) == 15
     assert html.count('aria-label="Plain-English reading guide"') == 15
@@ -138,28 +150,39 @@ def test_slide_failures_warn_without_losing_main_reports(tmp_path, caplog, failu
 @pytest.mark.unit
 @pytest.mark.parametrize(("response", "reason"), [
     ('{"private-source-text":', "deep model returned invalid JSON"),
-    (json.dumps({
+    (json.dumps({"guides": {"Market Analyst": {
         "main_point": "Private explanation containing invented 987654%.",
         "terms": "Funding means paying for a purchase.",
         "uncertainty": "Source conditions still apply.",
         "final_action_connection": "Read the final decision.",
         "risk_summary": None,
-    }), "explanation contains a number absent from its source"),
-    (json.dumps({
+    }}}), "explanation contains a number absent from the complete report"),
+    (json.dumps({"guides": {"Market Analyst": {
         "main_point": "private-source-text" * 110,
         "terms": "Funding means paying for a purchase.",
         "uncertainty": "Source conditions still apply.",
         "final_action_connection": "Read the final decision.",
         "risk_summary": None,
-    }), "main_point exceeds 1800 characters"),
+    }}}), "main_point exceeds 1800 characters"),
 ])
 def test_renderer_validation_warning_exposes_role_and_safe_reason_only(tmp_path, response, reason):
     model = Model()
-    model.invoke = lambda messages: SimpleNamespace(content=response)
+    original = model.invoke
+
+    def respond(messages):
+        if response.startswith('{"private-source-text"'):
+            return SimpleNamespace(content=response)
+        full = json.loads(original(messages).content)
+        full["guides"]["Market Analyst"] = json.loads(response)["guides"]["Market Analyst"]
+        return SimpleNamespace(content=json.dumps(full))
+
+    model.invoke = respond
     graph = SimpleNamespace(run_settings=lambda: {"reading_slides": True}, deep_thinking_llm=model)
     output = TradingAgentsGraph.save_reports(graph, state(), "TEST", tmp_path)
     warning = graph.report_warnings[0]
-    assert f"Market Analyst: {reason}" in warning
+    assert reason in warning
+    if "invalid JSON" not in reason:
+        assert f"Market Analyst: {reason}" in warning
     assert "private-source-text" not in warning
     assert "Private explanation" not in warning
     assert "987654" not in warning
@@ -183,7 +206,7 @@ def test_invalid_model_output_is_rejected_before_writing_a_deck(tmp_path, change
     def malformed(messages):
         response = original(messages)
         result = json.loads(response.content)
-        result.update(change)
+        result["guides"]["Market Analyst"].update(change)
         return SimpleNamespace(content=json.dumps(result))
 
     model.invoke = malformed
@@ -210,10 +233,77 @@ def test_source_numbers_can_change_decimal_format_without_being_invented():
 
     def response(messages):
         content = json.loads(original(messages).content)
-        content["main_point"] = "The reported close of 100 is an observation, not a forecast."
+        content["guides"]["News Analyst"]["main_point"] = "The reported close of 100 is an observation, not a forecast."
         return SimpleNamespace(content=json.dumps(content))
 
     model.invoke = response
-    explanation = _explanations(model, "Reading instructions", "Market Analyst",
-                                state()["market_report"], state()["final_trade_decision"], False)
-    assert "100" in explanation["main_point"]
+    roles = {"Market Analyst": False, "News Analyst": False}
+    explanation = _explanations(model, "Reading instructions", roles, state()["market_report"])
+    assert "100" in explanation["News Analyst"]["main_point"]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("extra_role", [False, True])
+def test_one_call_requires_exact_coverage_without_retry(tmp_path, extra_role):
+    saved = write_report_tree(state(), "TEST", tmp_path, html=False)
+    model = Model()
+    original = model.invoke
+
+    def respond(messages):
+        full = json.loads(original(messages).content)
+        if extra_role:
+            full["guides"]["Unknown role"] = full["guides"]["Market Analyst"]
+        else:
+            del full["guides"]["Portfolio Manager"]
+        return SimpleNamespace(content=json.dumps(full))
+
+    model.invoke = respond
+    with pytest.raises(ValueError, match="exactly every requested role"):
+        write_reading_slides_from_markdown(saved, model)
+    assert len(model.calls) == 1
+    assert not (tmp_path / "reading_slides.html").exists()
+
+
+@pytest.mark.unit
+def test_saved_report_generation_preserves_source_files_and_old_deck_on_failure(tmp_path):
+    source = state()
+    source["market_report"] += "\n\n```markdown\n## V. Portfolio Manager Decision\n### Portfolio Manager\n```"
+    saved = write_report_tree(source, "TEST", tmp_path)
+    originals = {path: path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()}
+    deck = tmp_path / "reading_slides.html"
+    deck.write_text("Keep existing deck", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="Unavailable"):
+        write_reading_slides_from_markdown(saved, Model(RuntimeError("Unavailable")))
+    assert deck.read_text(encoding="utf-8") == "Keep existing deck"
+    model = Model()
+    write_reading_slides_from_markdown(saved, model)
+    assert len(model.calls) == 1
+    assert json.loads(model.calls[0][1][1])["complete_report.md"] == saved.read_text(encoding="utf-8")
+    html = deck.read_text(encoding="utf-8")
+    md = MarkdownIt("commonmark", {"html": False}).enable("table")
+    assert md.render(source["market_report"]) in html
+    assert md.render(source["final_trade_decision"]) in html
+    for path, content in originals.items():
+        assert path.read_bytes() == content
+
+
+@pytest.mark.unit
+def test_saved_report_command_constructs_only_the_deep_client(tmp_path, monkeypatch):
+    from cli.run import generate_reading_slides
+
+    report = write_report_tree(state(), "TEST", tmp_path)
+    model = Model()
+    clients = []
+
+    def client(config, tier, **kwargs):
+        clients.append((config, tier, kwargs))
+        return SimpleNamespace(get_llm=lambda: model)
+
+    monkeypatch.setattr("tradingagents.llm_clients.create_tier_client", client)
+    monkeypatch.setattr("cli.run.TradingAgentsGraph",
+                        lambda *args, **kwargs: pytest.fail("Must not construct an analysis graph"))
+    generate_reading_slides(report)
+    assert len(model.calls) == 1
+    assert len(clients) == 1
+    assert clients[0][1] == "deep"
+    assert clients[0][2]["callbacks"]

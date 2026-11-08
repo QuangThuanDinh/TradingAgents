@@ -155,7 +155,8 @@ docker compose --profile ollama run --rm tradingagents-ollama
 
 ### Private CLI image for this fork
 
-Fork version **0.7.4** adds safe, role-specific reading-slide validation warnings.
+Fork version **0.7.5** switches to one whole-report deep-model invocation and adds
+the slides-only subcommand for existing reports, retaining safe validation warnings.
 Optional full-text reading slides use the selected deep model and a packaged
 skill/template. Native report-length presets remain,
 with defaults
@@ -171,7 +172,7 @@ the declared runtime/test/build dependencies, runs offline tests and lint, then
 builds the existing Dockerfile for **linux/amd64**. The build may download the
 Python base image and declared packages. No model APIs are called.
 
-The workflow publishes `ghcr.io/quangthuandinh/tradingagents-cli:0.7.4` and `:latest`
+The workflow publishes `ghcr.io/quangthuandinh/tradingagents-cli:0.7.5` and `:latest`
 using the private publishing repository's temporary `GITHUB_TOKEN` with
 package-write permission. It requires a private publishing repository, refuses
 an existing non-private package and verifies privacy before updating `latest`.
@@ -209,12 +210,36 @@ environment. Programmatic callers can set `config["reading_slides"] = True`
 and use `TradingAgentsGraph.save_reports()`.
 
 Primary Markdown/HTML reports are saved first. The same selected deep LLM
-client then makes one additional call per available role (up to twelve),
+client then makes one invocation with the entire saved `complete_report.md`,
+requesting guides for every available role and risk summaries in one JSON object,
 reusing its provider, endpoint, credentials, reasoning/token/retry settings
 and usage callbacks. These extra calls add cost and time; they do not rerun or
 change the financial analysis. The packaged `html-report-slides` skill supplies
 reading instructions; the model returns validated JSON explanations and approved
 risk summaries, not code. Guides are in English for readers new to finance.
+Exact role coverage, guide lengths and source numbers are validated. Numeric
+references may use any part of the complete report, with explicit attribution;
+that check is not independent factual verification. There is no automatic
+guide retry or per-role fallback. Existing SDK retries still follow your settings.
+The model's context and output limits must fit the report and the complete guide
+response; these limits are not silently increased.
+
+For an existing native report, use this manual CLI command:
+
+```bash
+tradingagents reading-slides /path/to/run/complete_report.md
+```
+
+It constructs only the selected deep client, using current CLI environment and
+configuration. It does not create an analysis graph, call the quick model, use
+portfolio context, rerun analysis or rewrite any original report file. A valid
+deck atomically replaces `reading_slides.html` beside the input; on generation
+failure the existing deck stays intact. Native team/role headings and a Portfolio
+Manager decision are required; unsupported Markdown fails explicitly.
+The viewer's saved-report button invokes this subcommand through the existing
+authenticated runner/Compose bridge, with current saved Analyse overrides.
+These one-call and saved-report changes require **CLI 0.7.5**, not 0.7.4;
+rebuild the existing CLI and deploy viewer/runner 1.0.14 and matching adapters.
 
 `reading_slides.html` is assembled deterministically from the original full
 analyst reports, every research round, Research Manager, full Trader and full

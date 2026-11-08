@@ -1,5 +1,6 @@
 import sys
 from enum import StrEnum
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -8,7 +9,7 @@ from rich.markup import escape
 from cli.display import console
 from cli.models import AnalystType, AssetType
 from cli.prompts import filter_analysts_for_asset_type, parse_analysts
-from cli.run import run_analysis
+from cli.run import generate_reading_slides, run_analysis
 from tradingagents.backtest import iter_grid, run_backtest, summarize
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.llm_clients.openai_client import SIGNED_IN_PROVIDERS
@@ -71,7 +72,8 @@ def analyze(
     reading_slides: bool | None = typer.Option(
         None, "--reading-slides/--no-reading-slides",
         help="Generate an extra full-text reading deck after saving, using the selected deep model. "
-        "Adds model calls, tokens and time. Omit to honor TRADINGAGENTS_READING_SLIDES (default: off).",
+        "Adds one whole-report deep-model invocation, tokens and time. "
+        "Omit to honor TRADINGAGENTS_READING_SLIDES (default: off).",
     ),
 ):
     """Run an analysis. This is what a bare `tradingagents` does.
@@ -114,6 +116,25 @@ def analyze(
             err=True,
         )
         raise typer.Exit(code=1) from None
+
+
+@app.command()
+def reading_slides(
+    report: Annotated[Path, typer.Argument(
+        exists=True, file_okay=True, dir_okay=False, readable=True,
+        help="Existing complete_report.md; saves reading_slides.html beside it without rerunning analysis.",
+    )],
+):
+    """Generate reading slides from an existing report with one selected deep-model call."""
+    from tradingagents.reading_slides import GENERATION_ERRORS, ReadingSlidesValidationError
+
+    try:
+        output = generate_reading_slides(report)
+    except GENERATION_ERRORS as exc:
+        reason = str(exc) if isinstance(exc, ReadingSlidesValidationError) else type(exc).__name__
+        typer.echo(f"Reading slides failed: {reason}. Original reports and existing slides are unchanged.", err=True)
+        raise typer.Exit(code=1) from None
+    console.print(f"Saved reading slides: {escape(str(output))}")
 
 
 @app.command()

@@ -97,6 +97,21 @@ def _build_run_config(selections: dict, checkpoint: bool | None) -> dict:
     return config
 
 
+def generate_reading_slides(report_path, progress=None):
+    """Use only the deep client; never create an analysis graph or rewrite reports."""
+    from tradingagents.llm_clients import create_tier_client
+    from tradingagents.reading_slides import write_reading_slides_from_markdown
+
+    stats = StatsCallbackHandler()
+    llm = create_tier_client(DEFAULT_CONFIG, "deep", callbacks=[stats]).get_llm()
+
+    def notify(done, total):
+        if progress:
+            progress(done, total, stats)
+
+    return write_reading_slides_from_markdown(report_path, llm, notify)
+
+
 def run_analysis(checkpoint: bool | None = None, portfolio=None, flags=None):
     flags = flags or {}
     # With no terminal nothing can answer a prompt: name every question still
