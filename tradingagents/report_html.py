@@ -234,6 +234,8 @@ def _run_details(final_state: dict, settings: dict | None) -> list[tuple[str, st
             _group("research", _fields([s("max_debate_rounds", "?")])),
             _group("risk", _fields([s("max_risk_discuss_rounds", "?")])),
         ))))
+        if s("report_length"):
+            details.append(("Report length", escape(s("report_length").title())))
         vendors = {**(s("data_vendors") or {}), **(s("tool_vendors") or {})}
         if vendors:
             details.append(("Data vendors", " ".join(

@@ -14,10 +14,16 @@ from tradingagents.agents.context import (
     get_instrument_context_from_state,
     get_language_instruction,
     get_portfolio_context_from_state,
+    get_report_length_instruction,
 )
 from tradingagents.agents.rating import parse_rating
 from tradingagents.agents.schemas import PortfolioDecision, render_pm_decision
-from tradingagents.agents.structured import NO_EXTERNAL_TOOLS, bind_structured, invoke_structured
+from tradingagents.agents.structured import (
+    NO_EXTERNAL_TOOLS,
+    bind_structured,
+    invoke_structured,
+    report_structured_llm,
+)
 
 
 def create_portfolio_manager(llm):
@@ -73,11 +79,14 @@ Write these sections, in this order, starting with the rating on its own line:
 - **Executive Summary**: the call and how to act on it
 - **Investment Thesis**: the evidence that decided it, and what would change it
 
-{NO_EXTERNAL_TOOLS}{get_language_instruction()}"""
+{NO_EXTERNAL_TOOLS}{get_language_instruction()}{get_report_length_instruction()}"""
 
         # The typed rating is the decision; the rendered text only carries it.
         # Read back from text, a rating the thesis quotes could replace it.
-        decision = invoke_structured(structured_llm, prompt, "Portfolio Manager")
+        decision = invoke_structured(
+            report_structured_llm(llm, structured_llm, PortfolioDecision, "Portfolio Manager"),
+            prompt, "Portfolio Manager",
+        )
         if decision is not None:
             final_trade_decision = render_pm_decision(decision)
             final_rating = decision.rating.value

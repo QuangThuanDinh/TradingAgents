@@ -22,7 +22,10 @@ def initialize_config():
 
 def _merge(base: dict, config: dict) -> dict:
     """Merge ``config`` into ``base``: dict-valued keys one level deep, scalars replaced."""
-    for key, value in deepcopy(config).items():
+    updates = deepcopy(config)
+    if "report_length" in updates:
+        updates["report_length"] = default_config.validate_report_length(updates["report_length"])
+    for key, value in updates.items():
         if isinstance(value, dict) and isinstance(base.get(key), dict):
             base[key].update(value)
         else:

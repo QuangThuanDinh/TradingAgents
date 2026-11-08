@@ -153,6 +153,45 @@ For local models with Ollama:
 docker compose --profile ollama run --rm tradingagents-ollama
 ```
 
+### Private CLI image for this fork
+
+Fork version **0.7.2** adds native report-length presets and defaults
+`get_news`/`get_global_news` to `alpha_vantage,yfinance`: Alpha Vantage first,
+Yahoo as fallback. Supply `ALPHA_VANTAGE_API_KEY` through your existing CLI
+environment file. Other tools retain their category defaults.
+
+`.github/workflows/publish-container.yml` runs on GitHub-hosted Ubuntu runners
+when a version tag is pushed, or via **Publish private CLI image > Run workflow**
+with an existing tag. Cancel it in GitHub Actions to stop a build. It installs
+the declared runtime/test/build dependencies, runs offline tests and lint, then
+builds the existing Dockerfile for **linux/amd64**. The build may download the
+Python base image and declared packages. No model APIs are called.
+
+The workflow publishes `ghcr.io/quangthuandinh/tradingagents:0.7.2` and `:latest`
+using the repository's temporary `GITHUB_TOKEN` with package-write permission.
+New GHCR packages default to private; publication refuses an existing non-private
+package and verifies privacy before updating `latest`. **Only the image is
+private: this fork's source and Actions logs remain public.** Never commit API
+keys or credentials; `.dockerignore` excludes `.env` files and the local `.venv`.
+
+For Dockhand, configure GHCR access using a GitHub username and classic PAT with
+`read:packages`, then change your existing CLI service's `image` to the versioned
+GHCR tag and remove its `build` section. Keep its `cli` profile, environment,
+results/cache mounts and service name. Pull the image onto the runner's Docker
+host before running an analysis; the manual equivalent from the external CLI
+Compose directory is:
+
+```bash
+docker compose --profile cli pull tradingagents-cli
+```
+
+Use viewer/runner **1.0.12** and matching host-mounted `cli_bridge.py` and
+`analysis_options.py`: older runner images reject CLI 0.7.2. The existing runner
+continues to launch the external CLI with `--pull never`, not install/download
+it. No additional runtime services or ports are introduced; existing API keys,
+Docker permissions, configuration and execution path are unchanged. Publishing
+an image neither starts an analysis nor updates a running deployment.
+
 ### Required APIs
 
 TradingAgents supports multiple LLM providers. Set the API key for your chosen provider:
@@ -216,6 +255,40 @@ Each flag skips only its own question. Run without a terminal, a missing answer 
 At start-up the interactive CLI mentions a newer release and notices from Tauric Research. It checks at most once a day, in the background, and sends nothing about your runs; set `TRADINGAGENTS_NO_UPDATE_CHECK=1` to turn it off. Runs without a terminal never check.
 
 A saved report also includes `complete_report.html`, the report as one page with its sections listed beside the text, for reading in a browser, on a phone or in print. Answering the save question at the prompt also asks about the page and can open it in your browser; `--no-html` skips it, and so does `ta.save_reports(state, "NVDA", html=False)` from Python.
+
+### Report length
+
+Set `TRADINGAGENTS_REPORT_LENGTH` in `.env` or the process environment, or set
+`config["report_length"]` for the Python API:
+
+| Value | Prompt budget |
+|---|---|
+| `concise` | Approximately 300 words per complete saved report section, including tables and all prose fields combined. |
+| `standard` | Default. Keeps the existing prompts and structured-output descriptions unchanged. |
+| `comprehensive` | Long-form reasoning with expanded evidence, assumptions, counterarguments, risks and actionable implications. |
+
+For example, add `TRADINGAGENTS_REPORT_LENGTH=concise` to `.env`, then run the
+existing CLI normally. Values are case-insensitive; unknown or invalid values
+fail explicitly. An unset or empty environment variable keeps Standard.
+
+The preset applies to Market, Sentiment, News and Fundamentals reports, the
+Research Manager's plan, the Trader's proposal and the Portfolio Manager's final
+decision. It does not change debate turns or their saved histories, research
+depth, tool limits, output language, provider/model choices or `max_tokens`.
+Required fields, rating scales, price validation and Markdown/HTML structure
+remain intact. The selected preset is recorded in run settings and the saved
+report header; changing it invalidates incompatible checkpoints.
+
+Word counts are model instructions, not hard limits: reports are not truncated,
+rewritten or padded after generation, and no extra summarization call is added.
+Missing evidence should produce explicit limitations rather than invented detail.
+Shorter analyst reports also provide shorter context to downstream agents, so
+different presets can produce different recommendations.
+
+This feature changes the existing CLI only: no additional service, dependency or
+tool download is introduced at runtime. After pulling these source changes,
+rebuild your existing CLI image before using the setting in Docker. It does not
+update a separate viewer/runner deployment automatically.
 
 ### Markets and tickers
 

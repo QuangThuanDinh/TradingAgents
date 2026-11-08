@@ -22,13 +22,18 @@ from datetime import datetime, timedelta
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
-from tradingagents.agents.context import get_instrument_context_from_state, get_language_instruction
+from tradingagents.agents.context import (
+    get_instrument_context_from_state,
+    get_language_instruction,
+    get_report_length_instruction,
+)
 from tradingagents.agents.post_screen import jev_screen
 from tradingagents.agents.schemas import SentimentReport, render_sentiment_report
 from tradingagents.agents.structured import (
     NO_EXTERNAL_TOOLS,
     bind_structured,
     invoke_structured_or_freetext,
+    report_structured_llm,
 )
 from tradingagents.agents.tools import get_news
 from tradingagents.dataflows.vendors.reddit import (
@@ -112,7 +117,7 @@ def create_sentiment_analyst(llm):
         formatted_messages = prompt.format_messages(messages=state["messages"])
 
         report_text = invoke_structured_or_freetext(
-            structured_llm,
+            report_structured_llm(llm, structured_llm, SentimentReport, "Sentiment Analyst"),
             llm,
             formatted_messages,
             render_sentiment_report,
@@ -138,13 +143,16 @@ def _build_system_message(
     subreddits: tuple[str, ...] = DEFAULT_SUBREDDITS,
 ) -> str:
     """Assemble the sentiment-analyst system message with structured data blocks."""
+    length_instruction = get_report_length_instruction()
+    report_detail = "" if length_instruction else "comprehensive "
+    narrative_detail = "" if length_instruction else "Full "
     if subreddits == DEFAULT_SUBREDDITS:
         character = "r/wallstreetbets is often contrarian/exuberant; r/stocks more measured; r/investing longer-term"
     elif len(subreddits) > len(CRYPTO_SUBREDDITS):
         character = f"r/{subreddits[0]} leans toward the coin's holders; r/CryptoCurrency and r/CryptoMarkets are broader"
     else:
         character = "r/CryptoCurrency and r/CryptoMarkets are broad crypto communities"
-    return f"""You are a financial market sentiment analyst. Your task is to produce a comprehensive sentiment report for {ticker} covering the period from {start_date} to {end_date}, drawing on three complementary data sources that have already been collected for you.
+    return f"""You are a financial market sentiment analyst. Your task is to produce a {report_detail}sentiment report for {ticker} covering the period from {start_date} to {end_date}, drawing on three complementary data sources that have already been collected for you.
 
 ## Data sources (pre-fetched, in this prompt)
 
@@ -194,6 +202,6 @@ Fill the following fields:
 - **overall_band**: Exactly one of Bullish / Mildly Bullish / Neutral / Mixed / Mildly Bearish / Bearish. Use Mixed when sources point in clearly different directions; Neutral only when all sources are genuinely silent.
 - **overall_score**: A number from 0 (maximally bearish) to 10 (maximally bullish); 5 is neutral. Keep it consistent with overall_band.
 - **confidence**: low / medium / high, based on data quality and sample size.
-- **narrative**: Full source-by-source breakdown, divergences, dominant narrative themes, catalysts and risks, and a markdown summary table of key sentiment signals (direction, source, supporting evidence).
+- **narrative**: {narrative_detail}source-by-source breakdown, divergences, dominant narrative themes, catalysts and risks, and a markdown summary table of key sentiment signals (direction, source, supporting evidence).
 
-{get_language_instruction()}"""
+{get_language_instruction()}{length_instruction}"""

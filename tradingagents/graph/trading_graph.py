@@ -13,7 +13,7 @@ from tradingagents.agents.rating import run_rating
 from tradingagents.dataflows.config import run_config, run_config_context, set_config
 from tradingagents.dataflows.date_window import get_current_date, is_historical
 from tradingagents.dataflows.symbols import safe_ticker_component
-from tradingagents.default_config import DEFAULT_CONFIG
+from tradingagents.default_config import DEFAULT_CONFIG, validate_report_length
 from tradingagents.llm_clients import create_tier_client, tier_provider
 from tradingagents.memory import TradingMemoryLog, settlement
 from tradingagents.memory.reflection import Reflector
@@ -270,6 +270,7 @@ class TradingAgentsGraph:
             "max_debate_rounds": cfg.get("max_debate_rounds"),
             "max_risk_discuss_rounds": cfg.get("max_risk_discuss_rounds"),
             "output_language": cfg.get("output_language"),
+            "report_length": validate_report_length(cfg.get("report_length", "standard")),
             "data_vendors": dict(cfg.get("data_vendors") or {}),
             "tool_vendors": dict(cfg.get("tool_vendors") or {}),
         }

@@ -1,4 +1,4 @@
-"""Prompt context shared by the agents: instrument identity, output language and portfolio."""
+"""Shared prompt context: instrument identity, language, report length and portfolio."""
 
 import functools
 import logging
@@ -7,8 +7,45 @@ from typing import Any
 
 from tradingagents.dataflows.date_window import is_historical
 from tradingagents.dataflows.vendors.yahoo.fundamentals import get_company_profile
+from tradingagents.default_config import validate_report_length
 
 logger = logging.getLogger(__name__)
+
+_REPORT_LENGTH_INSTRUCTIONS = {
+    "concise": (
+        "Report length: Concise. Aim for approximately 300 words for this entire saved "
+        "report section, including its summary table and all prose fields combined, "
+        "not 300 words per field or subsection. Prioritize the conclusion, strongest "
+        "supporting evidence, actionable implications and material risks or data limits. "
+        "Compress supporting discussion without dropping required fields or headings."
+    ),
+    "comprehensive": (
+        "Report length: Comprehensive. Write a long-form report section with expanded "
+        "supporting evidence, assumptions, alternative explanations, counterarguments, "
+        "risks and actionable implications. Explain what would change the assessment. "
+        "Keep any executive summary brief and put the depth in the main reasoning."
+    ),
+}
+
+
+def get_report_length() -> str:
+    from tradingagents.dataflows.config import get_config
+
+    return validate_report_length(get_config().get("report_length", "standard"))
+
+
+def get_report_length_instruction(standard_instruction: str = "") -> str:
+    """Standard preserves the original prompt; other presets budget the whole section."""
+    length = get_report_length()
+    if length == "standard":
+        return standard_instruction
+    return (
+        " " + _REPORT_LENGTH_INSTRUCTIONS[length]
+        + " This instruction governs verbosity instead of generic requests for full or "
+        "detailed prose. Preserve required ratings, numeric fields, evidence and tables. "
+        "Use only supported evidence; do not invent facts or pad missing data. "
+        "Apply the budget to the final report, not tool calls. "
+    )
 
 
 def get_language_instruction() -> str:

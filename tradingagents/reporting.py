@@ -38,6 +38,8 @@ def _header(ticker: str, final_state: dict, settings: dict | None) -> str:
         lines.append(f"- Analysts: {', '.join(analyst_names(s('analysts')))}; "
                      f"research debate rounds {s('max_debate_rounds', '?')}, "
                      f"risk debate rounds {s('max_risk_discuss_rounds', '?')}")
+        if s("report_length"):
+            lines.append(f"- Report length: {s('report_length').title()}")
         vendors = {**(s("data_vendors") or {}), **(s("tool_vendors") or {})}
         if vendors:
             lines.append("- Data vendors: " + ", ".join(f"{k} {v}" for k, v in vendors.items()))

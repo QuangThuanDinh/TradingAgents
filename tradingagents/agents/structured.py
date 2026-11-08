@@ -24,6 +24,9 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
+from tradingagents.agents.context import get_report_length
+from tradingagents.agents.schemas import report_schema
+
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
@@ -54,6 +57,16 @@ def bind_structured(llm: Any, schema: type[T], agent_name: str) -> Any | None:
             agent_name, exc,
         )
         return None
+
+
+def report_structured_llm(
+    llm: Any, standard_llm: Any | None, schema: type[T], agent_name: str,
+) -> Any | None:
+    """Select prose instructions at invocation, using the active run's own config."""
+    length = get_report_length()
+    if length == "standard":
+        return standard_llm
+    return bind_structured(llm, report_schema(schema, length), agent_name)
 
 
 def invoke_structured(structured_llm: Any | None, prompt: Any, agent_name: str) -> T | None:

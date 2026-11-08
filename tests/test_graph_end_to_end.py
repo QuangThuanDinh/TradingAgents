@@ -22,7 +22,7 @@ from tradingagents.agents import context, schemas
 from tradingagents.agents.analysts import sentiment_analyst
 from tradingagents.dataflows import router
 from tradingagents.dataflows.vendors.yahoo import market as yahoo_market, snapshot
-from tradingagents.default_config import DEFAULT_CONFIG
+from tradingagents.default_config import DEFAULT_CONFIG, REPORT_LENGTHS
 from tradingagents.graph import trading_graph
 
 TRADE_DATE = "2026-01-09"
@@ -66,7 +66,15 @@ class ScriptedModel(BaseChatModel):
     def with_structured_output(self, schema, **kwargs):
         if not self.structured:
             raise NotImplementedError
-        return RunnableLambda(lambda _: self._count() or STRUCTURED[schema])
+
+        def respond(_):
+            self._count()
+            for base, value in STRUCTURED.items():
+                if issubclass(schema, base):
+                    return schema.model_validate(value.model_dump())
+            raise AssertionError(f"Unexpected output schema: {schema}")
+
+        return RunnableLambda(respond)
 
     def _count(self) -> None:
         self.calls.append(1)
@@ -130,8 +138,10 @@ def _graph(tmp_path, monkeypatch, model, debug=False, **config):
 
 @pytest.mark.unit
 @pytest.mark.parametrize("structured", [False, True], ids=["free-text", "structured"])
-def test_a_full_run_reaches_a_logged_decision(tmp_path, monkeypatch, offline, structured):
-    graph = _graph(tmp_path, monkeypatch, ScriptedModel(structured=structured))
+@pytest.mark.parametrize("report_length", REPORT_LENGTHS)
+def test_a_full_run_reaches_a_logged_decision(tmp_path, monkeypatch, offline, structured, report_length):
+    graph = _graph(tmp_path, monkeypatch, ScriptedModel(structured=structured),
+                   report_length=report_length)
 
     state, signal = graph.propagate("NVDA", TRADE_DATE)
 

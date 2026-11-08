@@ -18,10 +18,14 @@ so that:
 
 from __future__ import annotations
 
+from copy import deepcopy
 from enum import StrEnum
+from functools import lru_cache
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, create_model, field_validator
+
+from tradingagents.default_config import validate_report_length
 
 # LLMs sometimes write a placeholder string ("None", "N/A", ...) into an optional
 # numeric field instead of omitting it. Coerce those to None so the structured
@@ -377,3 +381,41 @@ def render_sentiment_report(report: SentimentReport) -> str:
         "",
         report.narrative,
     ])
+
+
+_REPORT_PROSE_FIELDS = {
+    ResearchPlan: ("rationale", "strategic_actions"),
+    TraderProposal: ("reasoning",),
+    PortfolioDecision: ("investment_thesis",),
+    SentimentReport: ("narrative",),
+}
+
+
+@lru_cache(maxsize=12)
+def report_schema(schema: type[BaseModel], report_length: str) -> type[BaseModel]:
+    """Change prose instructions without mutating schemas or their inherited validators."""
+    length = validate_report_length(report_length)
+    if length == "standard":
+        return schema
+    descriptions = {
+        TraderProposal: {
+            "reasoning": "The case for this action, anchored in the analysts' reports and the research plan.",
+        },
+        SentimentReport: {
+            "narrative": (
+                "Sentiment report covering source-by-source evidence, divergences, "
+                "dominant themes, catalysts and risks, and a markdown summary table "
+                "with direction, source and supporting evidence. State data limitations."
+            ),
+        },
+    }
+    fields = {}
+    for name in _REPORT_PROSE_FIELDS[schema]:
+        field = deepcopy(schema.model_fields[name])
+        description = descriptions.get(schema, {}).get(name, field.description)
+        field.description = (
+            f"{description} Follow the {length} report-length instruction in the prompt. "
+            "Share the whole-section word budget across all prose fields, not per field."
+        )
+        fields[name] = (field.annotation, field)
+    return create_model(f"{schema.__name__}{length.title()}", __base__=schema, **fields)

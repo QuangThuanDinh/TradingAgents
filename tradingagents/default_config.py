@@ -2,6 +2,15 @@ import os
 
 _TRADINGAGENTS_HOME = os.path.join(os.path.expanduser("~"), ".tradingagents")
 
+REPORT_LENGTHS = ("concise", "standard", "comprehensive")
+
+
+def validate_report_length(value: str) -> str:
+    if not isinstance(value, str) or value.strip().lower() not in REPORT_LENGTHS:
+        raise ValueError(f"report_length must be one of: {', '.join(REPORT_LENGTHS)}")
+    return value.strip().lower()
+
+
 # Single source of truth for env-var → config-key overrides. To expose
 # a new config key for environment-based override, add a row here — no
 # entry-point script changes required. Coercion is driven by the type
@@ -17,6 +26,7 @@ _ENV_OVERRIDES = {
     "TRADINGAGENTS_QUICK_THINK_BACKEND_URL":   "quick_think_backend_url",
     "TRADINGAGENTS_LLM_BACKEND_URL":      "backend_url",
     "TRADINGAGENTS_OUTPUT_LANGUAGE":      "output_language",
+    "TRADINGAGENTS_REPORT_LENGTH":        "report_length",
     "TRADINGAGENTS_MAX_DEBATE_ROUNDS":    "max_debate_rounds",
     "TRADINGAGENTS_MAX_RISK_ROUNDS":      "max_risk_discuss_rounds",
     "TRADINGAGENTS_MAX_TOOL_ROUNDS":      "max_tool_rounds",
@@ -68,7 +78,8 @@ def _apply_env_overrides(config: dict) -> dict:
         if raw is None or raw == "":
             continue
         try:
-            config[key] = _coerce(raw, config.get(key))
+            config[key] = (validate_report_length(raw) if key == "report_length"
+                           else _coerce(raw, config.get(key)))
         except ValueError as exc:
             raise ValueError(f"Invalid value for {env_var}: {exc}") from exc
     return config
@@ -129,6 +140,8 @@ def build_default_config() -> dict:
         # Output language for analyst reports and final decision
         # Internal agent debate stays in English for reasoning quality
         "output_language": "English",
+        # Prompt verbosity for each analyst report, plan and final decision.
+        "report_length": "standard",
         # Debate and discussion settings
         "max_debate_rounds": 1,
         "max_risk_discuss_rounds": 1,
@@ -167,6 +180,8 @@ def build_default_config() -> dict:
         },
         # Tool-level configuration (takes precedence over category-level)
         "tool_vendors": {
+            "get_news": "alpha_vantage,yfinance",
+            "get_global_news": "alpha_vantage,yfinance",
             # Example: "get_stock_data": "alpha_vantage",  # Override category default
         },
         # Benchmark for alpha calculation in the reflection layer.

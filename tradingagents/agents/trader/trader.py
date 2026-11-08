@@ -8,12 +8,14 @@ from tradingagents.agents.context import (
     get_instrument_context_from_state,
     get_language_instruction,
     get_portfolio_context_from_state,
+    get_report_length_instruction,
 )
 from tradingagents.agents.schemas import TraderProposal, render_trader_proposal
 from tradingagents.agents.structured import (
     NO_EXTERNAL_TOOLS,
     bind_structured,
     invoke_structured_or_freetext,
+    report_structured_llm,
 )
 
 
@@ -59,6 +61,7 @@ def create_trader(llm):
                     "implies, or omit the field if you cannot state a number. "
                     + NO_EXTERNAL_TOOLS
                     + get_language_instruction()
+                    + get_report_length_instruction()
                 ),
             },
             {
@@ -83,7 +86,7 @@ def create_trader(llm):
         ]
 
         trader_plan = invoke_structured_or_freetext(
-            structured_llm,
+            report_structured_llm(llm, structured_llm, TraderProposal, "Trader"),
             llm,
             messages,
             render_trader_proposal,
