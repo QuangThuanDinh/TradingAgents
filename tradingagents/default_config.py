@@ -24,6 +24,8 @@ _ENV_OVERRIDES = {
     "TRADINGAGENTS_QUICK_THINK_PROVIDER":      "quick_think_provider",
     "TRADINGAGENTS_DEEP_THINK_BACKEND_URL":    "deep_think_backend_url",
     "TRADINGAGENTS_QUICK_THINK_BACKEND_URL":   "quick_think_backend_url",
+    "TRADINGAGENTS_DEEP_THINK_PROTOCOL":      "deep_think_protocol",
+    "TRADINGAGENTS_QUICK_THINK_PROTOCOL":     "quick_think_protocol",
     "TRADINGAGENTS_LLM_BACKEND_URL":      "backend_url",
     "TRADINGAGENTS_OUTPUT_LANGUAGE":      "output_language",
     "TRADINGAGENTS_REPORT_LENGTH":        "report_length",
@@ -117,6 +119,10 @@ def build_default_config() -> dict:
         "deep_think_provider": None,
         "quick_think_backend_url": None,
         "deep_think_backend_url": None,
+        # Protocol overrides require llm_provider and the tier's provider to be
+        # openai or openai_compatible. None keeps the provider's existing default.
+        "quick_think_protocol": None,
+        "deep_think_protocol": None,
         # Provider-specific thinking configuration
         "google_thinking_level": None,      # "high", "minimal", etc.
         "openai_reasoning_effort": None,    # "medium", "high", "low"

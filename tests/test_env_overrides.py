@@ -44,6 +44,27 @@ def test_string_overrides(monkeypatch):
     assert config["output_language"] == "Chinese"
 
 
+def test_tier_protocol_environment_overrides(monkeypatch):
+    config = _config_with_env(
+        monkeypatch,
+        TRADINGAGENTS_LLM_PROVIDER="openai_compatible",
+        TRADINGAGENTS_QUICK_THINK_PROTOCOL="openai-responses",
+        TRADINGAGENTS_DEEP_THINK_PROTOCOL="openai-completions",
+    )
+    assert config["quick_think_protocol"] == "openai-responses"
+    assert config["deep_think_protocol"] == "openai-completions"
+
+
+def test_empty_tier_protocol_environment_keeps_defaults(monkeypatch):
+    config = _config_with_env(
+        monkeypatch,
+        TRADINGAGENTS_QUICK_THINK_PROTOCOL="",
+        TRADINGAGENTS_DEEP_THINK_PROTOCOL="",
+    )
+    assert config["quick_think_protocol"] is None
+    assert config["deep_think_protocol"] is None
+
+
 def test_int_coercion(monkeypatch):
     config = _config_with_env(
         monkeypatch,

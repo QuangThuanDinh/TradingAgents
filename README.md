@@ -155,14 +155,25 @@ docker compose --profile ollama run --rm tradingagents-ollama
 
 ### Private CLI image for this fork
 
-Fork version **0.7.5** switches to one whole-report deep-model invocation and adds
-the slides-only subcommand for existing reports, retaining safe validation warnings.
+Fork version **0.7.2.6** adds independent quick/deep API protocol selection for
+`openai` and `openai_compatible`. It retains one whole-report deep-model invocation,
+the slides-only subcommand for existing reports, and safe validation warnings.
 Optional full-text reading slides use the selected deep model and a packaged
 skill/template. Native report-length presets remain,
 with defaults
 `get_news`/`get_global_news` to `alpha_vantage,yfinance`: Alpha Vantage first,
 Yahoo as fallback. Supply `ALPHA_VANTAGE_API_KEY` through your existing CLI
 environment file. Other tools retain their category defaults.
+
+Fork versions now use **`<upstream version>.<fork revision>`**: while upstream
+stays at `0.7.2`, fork revisions are `0.7.2.6`, `0.7.2.7`, and so on. The package
+version is defined in `tradingagents/__init__.py`; release tags use `v0.7.2.6`
+and matching image tags use `0.7.2.6`. Earlier fork revisions `0.7.3` through
+`0.7.5` remain in Git history; their remote version tags are retired.
+Python considers `0.7.2.6` older
+than `0.7.5`, so explicitly select this version when replacing a legacy install.
+These are source changes only; a commit does not create a release, publish an
+image, or update an existing deployment.
 
 The **Publish private external CLI** workflow in the private
 `QuangThuanDinh/tradingagents-view` repository runs on GitHub-hosted Ubuntu runners
@@ -172,7 +183,8 @@ the declared runtime/test/build dependencies, runs offline tests and lint, then
 builds the existing Dockerfile for **linux/amd64**. The build may download the
 Python base image and declared packages. No model APIs are called.
 
-The workflow publishes `ghcr.io/quangthuandinh/tradingagents-cli:0.7.5` and `:latest`
+For this version, run the workflow with tag `v0.7.2.6` after creating that release
+tag. It publishes `ghcr.io/quangthuandinh/tradingagents-cli:0.7.2.6` and `:latest`
 using the private publishing repository's temporary `GITHUB_TOKEN` with
 package-write permission. It requires a private publishing repository, refuses
 an existing non-private package and verifies privacy before updating `latest`.
@@ -238,7 +250,8 @@ failure the existing deck stays intact. Native team/role headings and a Portfoli
 Manager decision are required; unsupported Markdown fails explicitly.
 The viewer's saved-report button invokes this subcommand through the existing
 authenticated runner/Compose bridge, with current saved Analyse overrides.
-These one-call and saved-report changes require **CLI 0.7.5**, not 0.7.4;
+These one-call and saved-report changes are included in **CLI 0.7.2.6** under
+the new fork numbering (previously introduced in legacy **CLI 0.7.5**, not 0.7.4);
 rebuild the existing CLI and deploy viewer/runner 1.0.14 and matching adapters.
 
 `reading_slides.html` is assembled deterministically from the original full
@@ -306,6 +319,27 @@ For AWS Bedrock, install the extra with `pip install ".[bedrock]"`, set `llm_pro
 For local models, configure Ollama with `llm_provider: "ollama"`. The default endpoint is `http://localhost:11434/v1`; set `OLLAMA_BASE_URL` to point at a remote `ollama-serve`. Pull models with `ollama pull <name>`, and pick "Custom model ID" in the CLI for any model not listed by default.
 
 For any other OpenAI-compatible server (vLLM, LM Studio, llama.cpp, or a custom relay), use `llm_provider: "openai_compatible"` and set the endpoint via `backend_url` (or `TRADINGAGENTS_LLM_BACKEND_URL`), e.g. `http://localhost:8000/v1` for vLLM or `http://localhost:1234/v1` for LM Studio. The model is whatever your server serves. No key is needed for local servers; set `OPENAI_COMPATIBLE_API_KEY` when the endpoint requires one.
+
+With `TRADINGAGENTS_LLM_PROVIDER=openai` or `openai_compatible`, select the quick and deep
+protocols independently in `.env`, for example:
+
+```dotenv
+TRADINGAGENTS_LLM_PROVIDER=openai_compatible
+TRADINGAGENTS_LLM_BACKEND_URL=http://localhost:8000/v1
+TRADINGAGENTS_QUICK_THINK_PROTOCOL=openai-completions
+TRADINGAGENTS_DEEP_THINK_PROTOCOL=openai-responses
+```
+
+The Python config keys are `quick_think_protocol` and `deep_think_protocol`.
+Each accepts only `openai-completions` (`/v1/chat/completions`) or
+`openai-responses` (`/v1/responses`); unset values keep the existing provider
+default (Responses for native OpenAI, Chat Completions for custom endpoints).
+A blank environment variable leaves the default unchanged.
+Explicit protocol settings require both `llm_provider` and that tier's effective
+provider to be `openai` or `openai_compatible`; invalid values or provider combinations raise
+an error. Your existing endpoint must support the selected API, including tools
+for analyst calls. Requests use the existing client and configured endpoint,
+with no protocol fallback, additional service, dependency, or download.
 
 With `TYPESAFE_API_KEY` set, the Sentiment Analyst screens StockTwits and Reddit posts with TypeSafe's Jev before reading them. Posts that are not about the company are dropped, and each source opens with a count of the remaining posts by stance: bullish, bearish, neutral, or unclear. Without the key, posts pass through unscreened. `jev-latest` moves with new releases; set `TYPESAFE_DEFAULT_MODEL` to a versioned ID such as `jev-1.13.0` to hold it fixed across runs. To reach Jev through OpenRouter, put an OpenRouter key in `TYPESAFE_API_KEY` and set `TYPESAFE_BASE_URL=https://openrouter.ai/api`.
 

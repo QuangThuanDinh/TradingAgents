@@ -15,4 +15,4 @@ def test_the_build_reads_the_version_from_the_package():
     assert re.search(r'^dynamic = \["version"\]', PYPROJECT, re.M)
     assert 'version = {attr = "tradingagents.__version__"}' in PYPROJECT
     assert not re.search(r'^version = "', PYPROJECT, re.M)
-    assert re.fullmatch(r"\d+\.\d+\.\d+(\.dev\d+|rc\d+)?", tradingagents.__version__)
+    assert re.fullmatch(r"\d+\.\d+\.\d+(?:\.\d+)?(\.dev\d+|rc\d+)?", tradingagents.__version__)

@@ -6,6 +6,9 @@ another provider gets that provider's own settings and endpoint, never the main
 provider's URL, and the run's settings and report say which provider each used.
 """
 
+import json
+
+import httpx
 import pytest
 
 from tradingagents import default_config
@@ -88,3 +91,104 @@ def test_the_tier_settings_are_read_from_the_environment(monkeypatch):
     assert config["deep_think_provider"] == "anthropic"
     assert config["quick_think_backend_url"] == "http://localhost:8000/v1"
     assert config["quick_think_provider"] is None
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("quick_protocol", ["openai-completions", "openai-responses"])
+@pytest.mark.parametrize("provider,base_url", [
+    ("openai", "http://local.test/v1"),
+    ("openai", "https://api.openai.com/v1"),
+    ("openai_compatible", "http://local.test/v1"),
+])
+def test_tier_protocols_route_requests_independently(monkeypatch, quick_protocol, provider, base_url):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    requests = []
+
+    def respond(request):
+        requests.append(request)
+        if request.url.path == "/v1/responses":
+            payload = {
+                "id": "resp_test", "object": "response", "created_at": 1,
+                "model": "gpt-5.5", "status": "completed", "error": None,
+                "output": [{
+                    "id": "msg_test", "type": "message", "role": "assistant",
+                    "status": "completed",
+                    "content": [{"type": "output_text", "text": "ok", "annotations": []}],
+                }],
+            }
+        else:
+            payload = {
+                "id": "chatcmpl_test", "object": "chat.completion", "created": 1,
+                "model": "gpt-5.5",
+                "choices": [{
+                    "index": 0, "finish_reason": "stop",
+                    "message": {"role": "assistant", "content": "ok"},
+                }],
+            }
+        return httpx.Response(200, json=payload)
+
+    deep_protocol = (
+        "openai-responses" if quick_protocol == "openai-completions" else "openai-completions"
+    )
+    config = _config(
+        llm_provider=provider, backend_url=base_url,
+        quick_think_llm="gpt-5.5", deep_think_llm="gpt-5.5",
+        quick_think_protocol=quick_protocol, deep_think_protocol=deep_protocol,
+    )
+    with httpx.Client(transport=httpx.MockTransport(respond)) as http_client:
+        for tier, protocol in (("quick", quick_protocol), ("deep", deep_protocol)):
+            llm = factory.create_tier_client(config, tier, http_client=http_client).get_llm()
+            tool = {
+                "name": "lookup", "description": "Look up a ticker",
+                "parameters": {"type": "object", "properties": {"ticker": {"type": "string"}}},
+            }
+            assert llm.bind_tools([tool]).invoke("hello").content == "ok"
+            request = requests[-1]
+            body = json.loads(request.content)
+            responses = protocol == "openai-responses"
+            assert request.url.path == ("/v1/responses" if responses else "/v1/chat/completions")
+            assert ("input" if responses else "messages") in body
+            assert body["tools"][0]["type"] == "function"
+    assert len(requests) == 2
+
+
+@pytest.mark.unit
+def test_unset_tier_protocol_keeps_its_default(monkeypatch):
+    monkeypatch.delenv("OPENAI_COMPATIBLE_API_KEY", raising=False)
+    config = _config(
+        llm_provider="openai_compatible", backend_url="http://local.test/v1",
+        quick_think_protocol="openai-responses", deep_think_protocol=None,
+    )
+    quick = factory.create_tier_client(config, "quick").get_llm()
+    deep = factory.create_tier_client(config, "deep").get_llm()
+    assert quick.use_responses_api is True
+    assert deep.use_responses_api in (False, None)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("tier", ["quick", "deep"])
+@pytest.mark.parametrize(
+    "provider,tier_provider",
+    [("google", None), ("google", "openai_compatible"), ("openai_compatible", "google"),
+     ("openai", "anthropic"), ("chatgpt", None)],
+)
+def test_protocol_override_rejects_other_providers(monkeypatch, tier, provider, tier_provider):
+    made = _captured(monkeypatch)
+    config = _config(
+        llm_provider=provider,
+        **{f"{tier}_think_provider": tier_provider, f"{tier}_think_protocol": "openai-responses"},
+    )
+    with pytest.raises(ValueError, match=f"{tier}_think_protocol requires"):
+        factory.create_tier_client(config, tier)
+    assert made == []
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("tier", ["quick", "deep"])
+@pytest.mark.parametrize("protocol", ["responses", "", True, 123])
+def test_invalid_protocol_fails_before_client_creation(monkeypatch, tier, protocol):
+    made = _captured(monkeypatch)
+    config = _config(llm_provider="openai_compatible", **{f"{tier}_think_protocol": protocol})
+    with pytest.raises(ValueError, match=f"{tier}_think_protocol must be"):
+        factory.create_tier_client(config, tier)
+    assert made == []

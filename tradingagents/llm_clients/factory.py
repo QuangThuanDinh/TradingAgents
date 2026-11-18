@@ -152,5 +152,19 @@ def create_tier_client(config: dict, tier: str, **extra) -> BaseLLMClient:
     else:
         base_url = config.get(f"{tier}_think_backend_url")
     kwargs = build_llm_kwargs({**config, "llm_provider": provider})
+    protocol_key = f"{tier}_think_protocol"
+    protocol = config.get(protocol_key)
+    if protocol is not None:
+        protocol_providers = ("openai", "openai_compatible")
+        if config["llm_provider"].lower() not in protocol_providers or provider not in protocol_providers:
+            raise ValueError(
+                f"{protocol_key} requires llm_provider and the tier's provider "
+                "to be openai or openai_compatible."
+            )
+        if protocol not in ("openai-completions", "openai-responses"):
+            raise ValueError(
+                f"{protocol_key} must be openai-completions or openai-responses, got {protocol!r}"
+            )
+        kwargs["use_responses_api"] = protocol == "openai-responses"
     return create_llm_client(provider=provider, model=config[f"{tier}_think_llm"], base_url=base_url,
                              **kwargs, **extra)

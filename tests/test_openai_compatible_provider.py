@@ -1,7 +1,7 @@
 """Generic OpenAI-compatible provider (vLLM / LM Studio / llama.cpp / relays).
 
 Verifies the user-supplied base_url is required and honored, the key is optional
-(keyless local default), Chat Completions (not the Responses API) is used, any
+(keyless local default), Chat Completions is used by default, any
 model name is accepted, and the env backend URL precedence (#978).
 """
 

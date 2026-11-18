@@ -309,10 +309,9 @@ def is_openai_compatible(provider: str) -> bool:
 def _is_native_openai_base_url(base_url: str | None) -> bool:
     """True when ``base_url`` is unset or points at api.openai.com.
 
-    The Responses API (/v1/responses) only exists on native OpenAI. A custom
-    base_url on the ``openai`` provider (a proxy, gateway, or local server)
-    speaks only Chat Completions, so the Responses API must stay off there even
-    though the provider spec enables it (#1024).
+    Custom endpoints on the ``openai`` provider default to Chat Completions
+    for compatibility (#1024). An explicitly selected Responses protocol is
+    supported separately by the ``openai`` and ``openai_compatible`` providers.
     """
     if not base_url:
         return True
@@ -325,10 +324,11 @@ def _is_native_openai_base_url(base_url: str | None) -> bool:
 class OpenAIClient(BaseLLMClient):
     """Client for OpenAI, Ollama, OpenRouter, and xAI providers.
 
-    For native OpenAI models, uses the Responses API (/v1/responses) which
+    For native OpenAI models, defaults to the Responses API (/v1/responses) which
     supports reasoning_effort with function tools across all model families
     (GPT-4.1, GPT-5). Third-party compatible providers (xAI, OpenRouter,
-    Ollama) use standard Chat Completions.
+    Ollama) use standard Chat Completions. The ``openai`` and
+    ``openai_compatible`` providers also support explicit per-tier protocol overrides.
     """
 
     def __init__(
@@ -387,10 +387,10 @@ class OpenAIClient(BaseLLMClient):
                     f"(e.g. add {api_key_env}=your_key to your .env file)."
                 )
 
-            # The Responses API only exists on native OpenAI; if the user points
-            # the openai provider at a custom base_url (proxy/gateway/local), it
-            # only speaks Chat Completions, so keep Responses off there (#1024).
-            if spec.use_responses_api and _is_native_openai_base_url(base_url):
+            # Custom openai URLs retain their Chat Completions default (#1024).
+            if self.provider in ("openai", "openai_compatible") and "use_responses_api" in self.kwargs:
+                llm_kwargs["use_responses_api"] = self.kwargs["use_responses_api"]
+            elif spec.use_responses_api and _is_native_openai_base_url(base_url):
                 llm_kwargs["use_responses_api"] = True
         elif self.base_url:
             llm_kwargs["base_url"] = self.base_url
